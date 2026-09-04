@@ -42,3 +42,6 @@ msgstr "JATS XML"
 
 msgid "plugins.importexport.metafora.settings.format.scienceSpace"
 msgstr "Science Space XML"
+
+msgid "plugins.importexport.metafora.export.json"
+msgstr "Экспортировать выбранные публикации"

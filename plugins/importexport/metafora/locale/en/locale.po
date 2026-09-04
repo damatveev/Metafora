@@ -1,0 +1,5 @@
+msgid "plugins.importexport.metafora.displayName"
+msgstr "Metafora Export Plugin"
+
+msgid "plugins.importexport.metafora.description"
+msgstr "Exports OJS publications to the Metafora information system."

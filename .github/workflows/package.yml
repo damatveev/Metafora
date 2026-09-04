@@ -1,0 +1,40 @@
+name: Build plugin package
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify plugin structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f plugins/importexport/metafora/index.php
+          test -f plugins/importexport/metafora/MetaforaExportPlugin.php
+          test -f plugins/importexport/metafora/version.xml
+          test -d plugins/importexport/metafora/locale
+          test -d plugins/importexport/metafora/templates
+
+      - name: Build ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/metafora
+          cp -a plugins/importexport/metafora/. dist/metafora/
+          cd dist
+          zip -r metafora-ojs35.zip metafora
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: metafora-ojs35
+          path: dist/metafora-ojs35.zip
+          if-no-files-found: error

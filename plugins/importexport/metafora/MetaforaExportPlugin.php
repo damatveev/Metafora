@@ -162,4 +162,21 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
         return parent::manage($args, $request);
     }
+
+    /**
+     * CLI support required by ImportExportPlugin.
+     *
+     * CLI export is intentionally disabled until the Metafora export contract
+     * and transport endpoints are finalized.
+     */
+    public function executeCLI($scriptName, &$args)
+    {
+        $this->usage($scriptName);
+    }
+
+    public function usage($scriptName): void
+    {
+        echo "Metafora Export Plugin for OJS 3.5\n";
+        echo "CLI export is not enabled in this development build.\n";
+    }
 }

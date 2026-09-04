@@ -3,3 +3,42 @@ msgstr "Metafora Export Plugin"
 
 msgid "plugins.importexport.metafora.description"
 msgstr "Exports OJS publications to the Metafora information system."
+
+msgid "plugins.importexport.metafora.settings.connection"
+msgstr "Metafora connection"
+
+msgid "plugins.importexport.metafora.settings.apiUrl"
+msgstr "API URL"
+
+msgid "plugins.importexport.metafora.settings.apiToken"
+msgstr "API token"
+
+msgid "plugins.importexport.metafora.settings.export"
+msgstr "Export settings"
+
+msgid "plugins.importexport.metafora.settings.exportFormat"
+msgstr "Export format"
+
+msgid "plugins.importexport.metafora.settings.validateXml"
+msgstr "Validate XML against XSD before sending"
+
+msgid "plugins.importexport.metafora.settings.includePdf"
+msgstr "Include publication PDF files"
+
+msgid "plugins.importexport.metafora.settings.includeReferences"
+msgstr "Include bibliographic references"
+
+msgid "plugins.importexport.metafora.settings.autoExport"
+msgstr "Automatically export after publication"
+
+msgid "plugins.importexport.metafora.settings.format.api"
+msgstr "Metafora API"
+
+msgid "plugins.importexport.metafora.settings.format.journal"
+msgstr "Journal XML"
+
+msgid "plugins.importexport.metafora.settings.format.jats"
+msgstr "JATS XML"
+
+msgid "plugins.importexport.metafora.settings.format.scienceSpace"
+msgstr "Science Space XML"

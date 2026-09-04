@@ -3,3 +3,42 @@ msgstr "Экспорт в ИС Метафора"
 
 msgid "plugins.importexport.metafora.description"
 msgstr "Экспорт публикаций OJS в информационную систему Метафора."
+
+msgid "plugins.importexport.metafora.settings.connection"
+msgstr "Подключение к ИС Метафора"
+
+msgid "plugins.importexport.metafora.settings.apiUrl"
+msgstr "URL API"
+
+msgid "plugins.importexport.metafora.settings.apiToken"
+msgstr "API-токен"
+
+msgid "plugins.importexport.metafora.settings.export"
+msgstr "Параметры экспорта"
+
+msgid "plugins.importexport.metafora.settings.exportFormat"
+msgstr "Формат экспорта"
+
+msgid "plugins.importexport.metafora.settings.validateXml"
+msgstr "Проверять XML по XSD перед отправкой"
+
+msgid "plugins.importexport.metafora.settings.includePdf"
+msgstr "Включать PDF-файлы публикаций"
+
+msgid "plugins.importexport.metafora.settings.includeReferences"
+msgstr "Включать библиографические ссылки"
+
+msgid "plugins.importexport.metafora.settings.autoExport"
+msgstr "Автоматически экспортировать после публикации"
+
+msgid "plugins.importexport.metafora.settings.format.api"
+msgstr "Metafora API"
+
+msgid "plugins.importexport.metafora.settings.format.journal"
+msgstr "Journal XML"
+
+msgid "plugins.importexport.metafora.settings.format.jats"
+msgstr "JATS XML"
+
+msgid "plugins.importexport.metafora.settings.format.scienceSpace"
+msgstr "Science Space XML"

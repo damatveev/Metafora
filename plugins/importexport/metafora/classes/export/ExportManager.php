@@ -13,13 +13,16 @@ namespace APP\plugins\importexport\metafora\classes\export;
 
 use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\mapping\OjsPublicationMapper;
+use APP\plugins\importexport\metafora\classes\validation\PublicationValidator;
 use PKP\context\Context;
 use RuntimeException;
 
 class ExportManager
 {
-    public function __construct(private readonly OjsPublicationMapper $mapper = new OjsPublicationMapper())
-    {
+    public function __construct(
+        private readonly OjsPublicationMapper $mapper = new OjsPublicationMapper(),
+        private readonly PublicationValidator $validator = new PublicationValidator(),
+    ) {
     }
 
     public function collect(array $submissionIds, Context $context): array
@@ -36,7 +39,21 @@ class ExportManager
                 continue;
             }
 
-            $publications[] = $this->mapper->map($submission, $context);
+            $publication = $this->mapper->map($submission, $context);
+            $errors = $this->validator->validate($publication);
+            if ($errors !== []) {
+                throw new RuntimeException(sprintf(
+                    'Submission %d failed Metafora validation: %s',
+                    $submissionId,
+                    implode(' ', $errors)
+                ));
+            }
+
+            $publications[] = $publication;
+        }
+
+        if ($publications === []) {
+            throw new RuntimeException('No valid publications selected for Metafora export.');
         }
 
         return $publications;

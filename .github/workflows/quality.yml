@@ -1,0 +1,48 @@
+name: Plugin quality
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: PHP syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          find plugins/importexport/metafora -type f -name '*.php' -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Parse XML metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -r '$d=new DOMDocument(); if (!$d->load("plugins/importexport/metafora/version.xml")) { exit(1); }'
+
+      - name: Check committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude='*.md' \
+            '(apiToken\s*=\s*["'"'][A-Za-z0-9_-]{16,}["'"']|Authorization:\s*Bearer\s+[A-Za-z0-9._-]{16,})' .; then
+            echo 'Potential committed API secret detected.' >&2
+            exit 1
+          fi

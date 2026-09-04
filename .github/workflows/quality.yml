@@ -41,8 +41,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RInE --exclude-dir=.git --exclude='*.md' \
-            '(apiToken\s*=\s*["'"'][A-Za-z0-9_-]{16,}["'"']|Authorization:\s*Bearer\s+[A-Za-z0-9._-]{16,})' .; then
-            echo 'Potential committed API secret detected.' >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          patterns = [
+              re.compile(r"apiToken\s*=\s*['\"][A-Za-z0-9_-]{16,}['\"]"),
+              re.compile(r"Authorization:\s*Bearer\s+[A-Za-z0-9._-]{16,}", re.IGNORECASE),
+          ]
+
+          offenders = []
+          for path in Path('.').rglob('*'):
+              if not path.is_file() or '.git' in path.parts or path.suffix.lower() == '.md':
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except (UnicodeDecodeError, OSError):
+                  continue
+              if any(pattern.search(text) for pattern in patterns):
+                  offenders.append(str(path))
+
+          if offenders:
+              print('Potential committed API secret detected:', file=sys.stderr)
+              for offender in offenders:
+                  print(f'  {offender}', file=sys.stderr)
+              sys.exit(1)
+          PY

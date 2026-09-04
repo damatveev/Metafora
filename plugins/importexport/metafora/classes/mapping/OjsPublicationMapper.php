@@ -69,9 +69,43 @@ class OjsPublicationMapper
             doi: $publication->getDoi(),
             issue: $issueData,
             journal: $journal,
-            files: [],
+            files: $this->mapFiles((array) $publication->getData('galleys')),
             references: $this->mapReferences($publication->getData('citationsRaw')),
         );
+    }
+
+    /**
+     * Map publication galleys to transport-safe file descriptors.
+     *
+     * No local filesystem paths are exposed. The exporter keeps only OJS IDs
+     * and descriptive metadata; the binary transport layer resolves the file
+     * later through Repo::submissionFile().
+     */
+    private function mapFiles(array $galleys): array
+    {
+        $files = [];
+
+        foreach ($galleys as $galley) {
+            $submissionFileId = (int) $galley->getData('submissionFileId');
+            $submissionFile = $submissionFileId
+                ? Repo::submissionFile()->get($submissionFileId)
+                : null;
+
+            $files[] = [
+                'galleyId' => $galley->getId(),
+                'label' => $galley->getLabel(),
+                'locale' => $galley->getData('locale'),
+                'remoteUrl' => $galley->getData('urlRemote'),
+                'doi' => $galley->getDoi(),
+                'submissionFileId' => $submissionFileId ?: null,
+                'fileId' => $submissionFile?->getData('fileId'),
+                'name' => $submissionFile?->getData('name'),
+                'mimetype' => $submissionFile?->getData('mimetype'),
+                'fileStage' => $submissionFile?->getData('fileStage'),
+            ];
+        }
+
+        return $files;
     }
 
     private function mapReferences(mixed $citationsRaw): array

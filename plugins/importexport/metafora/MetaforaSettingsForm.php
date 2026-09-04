@@ -2,6 +2,7 @@
 
 namespace APP\plugins\importexport\metafora;
 
+use APP\template\TemplateManager;
 use PKP\form\Form;
 use PKP\form\validation\FormValidatorCSRF;
 use PKP\form\validation\FormValidatorPost;
@@ -26,6 +27,9 @@ class MetaforaSettingsForm extends Form
         foreach ($this->getFormFields() as $fieldName => $fieldType) {
             $this->setData($fieldName, $this->plugin->getSetting($this->contextId, $fieldName));
         }
+        if (!$this->getData('exportFormat')) {
+            $this->setData('exportFormat', 'api');
+        }
     }
 
     public function readInputData(): void
@@ -39,6 +43,17 @@ class MetaforaSettingsForm extends Form
         foreach ($this->getFormFields() as $fieldName => $fieldType) {
             $this->plugin->updateSetting($this->contextId, $fieldName, $this->getData($fieldName), $fieldType);
         }
+    }
+
+    public function fetch($request, $template = null, $display = false)
+    {
+        TemplateManager::getManager($request)->assign('exportFormats', [
+            'api' => __('plugins.importexport.metafora.settings.format.api'),
+            'journal' => __('plugins.importexport.metafora.settings.format.journal'),
+            'jats' => __('plugins.importexport.metafora.settings.format.jats'),
+            'scienceSpace' => __('plugins.importexport.metafora.settings.format.scienceSpace'),
+        ]);
+        return parent::fetch($request, $template, $display);
     }
 
     public function getFormFields(): array

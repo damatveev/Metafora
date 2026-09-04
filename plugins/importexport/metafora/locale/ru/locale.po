@@ -13,6 +13,9 @@ msgstr "URL API"
 msgid "plugins.importexport.metafora.settings.apiToken"
 msgstr "API-токен"
 
+msgid "plugins.importexport.metafora.settings.apiTestEndpoint"
+msgstr "Endpoint проверки соединения (необязательно)"
+
 msgid "plugins.importexport.metafora.settings.export"
 msgstr "Параметры экспорта"
 
@@ -45,3 +48,12 @@ msgstr "Science Space XML"
 
 msgid "plugins.importexport.metafora.export.json"
 msgstr "Экспортировать выбранные публикации"
+
+msgid "plugins.importexport.metafora.connection.success"
+msgstr "Соединение установлено. HTTP {$status}."
+
+msgid "plugins.importexport.metafora.connection.failure"
+msgstr "Сервер ответил ошибкой. HTTP {$status}."
+
+msgid "plugins.importexport.metafora.connection.error"
+msgstr "Не удалось установить соединение с ИС Метафора. Проверьте URL и настройки сети."

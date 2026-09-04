@@ -61,6 +61,7 @@ class MetaforaSettingsForm extends Form
         return [
             'apiUrl' => 'string',
             'apiToken' => 'string',
+            'apiTestEndpoint' => 'string',
             'exportFormat' => 'string',
             'validateXml' => 'bool',
             'includePdf' => 'bool',

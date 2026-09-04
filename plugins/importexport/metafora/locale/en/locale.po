@@ -13,6 +13,9 @@ msgstr "API URL"
 msgid "plugins.importexport.metafora.settings.apiToken"
 msgstr "API token"
 
+msgid "plugins.importexport.metafora.settings.apiTestEndpoint"
+msgstr "Connection test endpoint (optional)"
+
 msgid "plugins.importexport.metafora.settings.export"
 msgstr "Export settings"
 
@@ -45,3 +48,12 @@ msgstr "Science Space XML"
 
 msgid "plugins.importexport.metafora.export.json"
 msgstr "Export selected publications"
+
+msgid "plugins.importexport.metafora.connection.success"
+msgstr "Connection established. HTTP {$status}."
+
+msgid "plugins.importexport.metafora.connection.failure"
+msgstr "The server returned an error. HTTP {$status}."
+
+msgid "plugins.importexport.metafora.connection.error"
+msgstr "Unable to connect to Metafora. Check the API URL and network settings."

@@ -10,6 +10,7 @@
 			{fbvFormSection title="plugins.importexport.metafora.settings.connection"}
 				{fbvElement type="text" id="apiUrl" value=$apiUrl label="plugins.importexport.metafora.settings.apiUrl" size=$fbvStyles.size.LARGE}
 				{fbvElement type="text" password="true" id="apiToken" value=$apiToken label="plugins.importexport.metafora.settings.apiToken" size=$fbvStyles.size.LARGE}
+				{fbvElement type="text" id="apiTestEndpoint" value=$apiTestEndpoint label="plugins.importexport.metafora.settings.apiTestEndpoint" size=$fbvStyles.size.LARGE}
 			{/fbvFormSection}
 			{fbvFormSection title="plugins.importexport.metafora.settings.export"}
 				{fbvElement type="select" id="exportFormat" from=$exportFormats selected=$exportFormat label="plugins.importexport.metafora.settings.exportFormat" translate=false}

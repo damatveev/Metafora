@@ -2,8 +2,8 @@
 
 namespace APP\plugins\importexport\metafora;
 
-use APP\core\Request;
 use APP\notification\NotificationManager;
+use APP\plugins\importexport\metafora\classes\api\MetaforaApiClient;
 use APP\plugins\importexport\metafora\classes\export\ExportManager;
 use APP\template\TemplateManager;
 use PKP\core\JSONMessage;
@@ -11,6 +11,7 @@ use PKP\core\PKPApplication;
 use PKP\file\FileManager;
 use PKP\plugins\ImportExportPlugin;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 class MetaforaExportPlugin extends ImportExportPlugin
 {
@@ -134,6 +135,29 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     return new JSONMessage(true);
                 }
                 return new JSONMessage(true, $form->fetch($request));
+
+            case 'testConnection':
+                $apiUrl = (string) $this->getSetting($context->getId(), 'apiUrl');
+                $apiToken = (string) $this->getSetting($context->getId(), 'apiToken');
+                $testEndpoint = (string) $this->getSetting($context->getId(), 'apiTestEndpoint');
+
+                try {
+                    $result = (new MetaforaApiClient($apiUrl, $apiToken))->testConnection($testEndpoint);
+                    $status = (int) ($result['status'] ?? 0);
+                    $ok = $status >= 200 && $status < 400;
+
+                    return new JSONMessage($ok, [
+                        'status' => $status,
+                        'message' => $ok
+                            ? __('plugins.importexport.metafora.connection.success', ['status' => $status])
+                            : __('plugins.importexport.metafora.connection.failure', ['status' => $status]),
+                    ]);
+                } catch (Throwable $e) {
+                    return new JSONMessage(false, [
+                        'status' => 0,
+                        'message' => __('plugins.importexport.metafora.connection.error'),
+                    ]);
+                }
         }
 
         return parent::manage($args, $request);

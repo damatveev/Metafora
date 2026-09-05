@@ -17,6 +17,13 @@ use InvalidArgumentException;
 
 class MetaforaApiClient
 {
+    /** Official Metafora API v2 file operations verified from the RCSI documentation. */
+    public const ENDPOINT_JATS_XML = 'files/jats/xml';
+    public const ENDPOINT_JATS_XML_PDF = 'files/jats/xml_pdf';
+    public const ENDPOINT_JOURNAL_XML = 'files/journal';
+    public const ENDPOINT_PDF = 'files/pdf';
+    public const ENDPOINT_STATUS = 'files/status';
+
     private Client $client;
     private string $apiUrl;
     private string $apiToken;
@@ -38,10 +45,11 @@ class MetaforaApiClient
     }
 
     /**
-     * Perform a request relative to the configured API URL.
+     * Perform a request relative to the configured Metafora API v2 URL.
      *
-     * The exact endpoint paths are intentionally not hard-coded here. They
-     * must be taken from the current Metafora API specification.
+     * Official Metafora documentation requires the API key in the `Api-Key`
+     * request header. Request bodies are supplied by the transport layer so
+     * multipart field names are not guessed here.
      *
      * @throws GuzzleException
      */
@@ -51,7 +59,7 @@ class MetaforaApiClient
         $headers['Accept'] = $headers['Accept'] ?? 'application/json';
 
         if ($this->apiToken !== '') {
-            $headers['Authorization'] = $headers['Authorization'] ?? 'Bearer ' . $this->apiToken;
+            $headers['Api-Key'] = $headers['Api-Key'] ?? $this->apiToken;
         }
 
         $options['headers'] = $headers;
@@ -77,8 +85,8 @@ class MetaforaApiClient
     }
 
     /**
-     * Lightweight connectivity check against the configured URL or a
-     * supplied relative endpoint.
+     * Lightweight connectivity check against the configured URL or supplied
+     * relative endpoint. No secret is returned to callers.
      *
      * @throws GuzzleException
      */

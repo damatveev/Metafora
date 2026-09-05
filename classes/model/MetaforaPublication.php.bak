@@ -24,7 +24,6 @@ class MetaforaPublication
         public readonly array $journal,
         public readonly array $files,
         public readonly array $references,
-        public readonly array $metadata = [],
     ) {
     }
 
@@ -41,8 +40,6 @@ class MetaforaPublication
             'journal' => $this->journal,
             'files' => $this->files,
             'references' => $this->references,
-            'metadata' => $this->metadata,
-            'metadata' => $this->metadata,
         ];
     }
 }

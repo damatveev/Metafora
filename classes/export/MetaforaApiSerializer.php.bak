@@ -1,0 +1,79 @@
+<?php
+
+namespace APP\plugins\importexport\metafora\classes\export;
+
+use RuntimeException;
+
+class MetaforaApiSerializer
+{
+    public function serialize(array $publications): string
+    {
+        $data = [];
+
+        foreach ($publications as $publication) {
+
+            $item = $publication->toArray();
+
+            $data[] = [
+                'publicationId' => $item['submissionId'],
+
+                'metadata' => [
+                    'title' => $item['title'],
+                    'abstract' => $item['abstract'],
+                    'keywords' => $item['keywords'],
+                    'references' => $item['references'],
+                ],
+
+                'authors' => $this->authors($item['authors']),
+
+                'identifiers' => [
+                    'doi' => $item['doi'],
+                ],
+
+                'journal' => $item['journal'],
+
+                'issue' => $item['issue'],
+
+                'files' => $item['files'],
+            ];
+        }
+
+        $json = json_encode(
+            [
+                'schema' => 'metafora-api-v1',
+                'publications' => $data,
+            ],
+            JSON_PRETTY_PRINT |
+            JSON_UNESCAPED_UNICODE |
+            JSON_UNESCAPED_SLASHES |
+            JSON_THROW_ON_ERROR
+        );
+
+        if (!$json) {
+            throw new RuntimeException(
+                'Metafora serialization failed'
+            );
+        }
+
+        return $json;
+    }
+
+
+    private function authors(array $authors): array
+    {
+        return array_map(
+            static function ($author) {
+
+                return [
+                    'givenName' => $author['givenName'] ?? '',
+                    'familyName' => $author['familyName'] ?? '',
+                    'orcid' => $author['orcid'] ?? null,
+                    'affiliation' => $author['affiliation'] ?? null,
+                    'country' => $author['country'] ?? null,
+                ];
+
+            },
+            $authors
+        );
+    }
+}

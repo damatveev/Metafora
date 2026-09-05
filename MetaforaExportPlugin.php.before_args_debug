@@ -6,6 +6,7 @@ use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\api\MetaforaApiClient;
 use APP\plugins\importexport\metafora\classes\export\ExportManager;
 use APP\plugins\importexport\metafora\classes\export\IssueArticleManager;
+use APP\plugins\importexport\metafora\classes\export\MetaforaSendManager;
 use PKP\plugins\ImportExportPlugin;
 
 class MetaforaExportPlugin extends ImportExportPlugin
@@ -43,30 +44,31 @@ class MetaforaExportPlugin extends ImportExportPlugin
     public function executeCLI($scriptName, &$args): void
     {
         $command = $args[0] ?? null;
-        $journalPath = $args[1] ?? null;
 
-
-        if (!$command || !$journalPath) {
+        if (!$command) {
             $this->usage($scriptName);
             return;
         }
 
+        $journalPath = $args[1] ?? null;
 
-        $context = \Application::get()
-            ->getContextDAO()
-            ->getByPath($journalPath);
+        $context = null;
 
-
-        if (!$context) {
-            echo "Journal not found\n";
-            return;
+        foreach (Repo::context()->getCollector()->getMany() as $item) {
+            if ($item->getPath() === $journalPath) {
+                $context = $item;
+                break;
+            }
         }
 
+        if (!$context) {
+            echo "Journal not found: {$journalPath}\n";
+            return;
+        }
 
         try {
 
             switch ($command) {
-
 
                 case 'issues':
 
@@ -75,21 +77,10 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         ->filterByContextIds([$context->getId()])
                         ->getMany();
 
-
-                    echo "ID | Volume | Number | Year | Articles\n";
-                    echo "--------------------------------\n";
-
+                    echo "ID | Volume | Number | Year\n";
+                    echo "----------------------------\n";
 
                     foreach ($issues as $issue) {
-
-                        $articles = Repo::submission()
-                            ->getCollector()
-                            ->filterByContextIds([$context->getId()])
-                            ->filterByIssueIds([$issue->getId()])
-                            ->filterByStatus([STATUS_PUBLISHED])
-                            ->getMany();
-
-
                         echo $issue->getId()
                             . " | "
                             . $issue->getData('volume')
@@ -97,8 +88,6 @@ class MetaforaExportPlugin extends ImportExportPlugin
                             . $issue->getData('number')
                             . " | "
                             . $issue->getData('year')
-                            . " | "
-                            . count($articles)
                             . "\n";
                     }
 
@@ -109,21 +98,18 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
                     $issueId = (int)($args[2] ?? 0);
 
-                    $manager = new IssueArticleManager();
+                    $manager = new \APP\plugins\importexport\metafora\classes\export\IssueArticleManager();
 
                     $articles = $manager->getArticles(
                         $issueId,
                         $context
                     );
 
-
                     echo "Submission ID | DOI | Title\n";
                     echo "--------------------------------\n";
 
-
                     foreach ($articles as $article) {
-
-                        echo ($article['submissionId'] ?? '')
+                        echo $article['submissionId']
                             . " | "
                             . ($article['doi'] ?? '')
                             . " | "
@@ -147,18 +133,39 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         $context
                     );
 
-
-                    $dir = "metafora-export/issue-" . $issueId;
-
+                    $dir = 'metafora-export/issue-' . $issueId;
 
                     if (!is_dir($dir)) {
                         mkdir($dir, 0755, true);
                     }
 
+                    foreach ($documents as $id => $xml) {
+
+                        $file = $dir . '/' . $id . '.xml';
+
+                        file_put_contents(
+                            $file,
+                            $xml
+                        );
+
+                        echo $file . "\n";
+                    }
+
+                    return;
+
+
+                case 'export-jats':
+
+                    $manager = new ExportManager();
+
+                    $documents = $manager->exportJats(
+                        [],
+                        $context
+                    );
 
                     foreach ($documents as $id => $xml) {
 
-                        $file = $dir . "/" . $id . ".xml";
+                        $file = 'metafora-article-' . $id . '.xml';
 
                         file_put_contents(
                             $file,
@@ -183,22 +190,17 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         'apiToken'
                     );
 
-
                     if ($apiUrl === '' || $apiToken === '') {
                         echo "Metafora API settings are empty\n";
                         return;
                     }
 
-
-                    $result = (new MetaforaApiClient(
+                    $result = (new \APP\plugins\importexport\metafora\classes\api\MetaforaApiClient(
                         $apiUrl,
                         $apiToken
                     ))->testConnection();
 
-
-                    echo "HTTP: "
-                        . ($result['status'] ?? '')
-                        . "\n";
+                    echo "HTTP: " . $result['status'] . "\n";
 
                     return;
 
@@ -209,15 +211,10 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     $this->usage($scriptName);
             }
 
-
         } catch (\Throwable $e) {
 
-            echo "ERROR:\n";
+            echo "Export failed:\n";
             echo $e->getMessage() . "\n";
-            echo $e->getFile()
-                . ":"
-                . $e->getLine()
-                . "\n";
         }
     }
 
@@ -229,6 +226,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
         echo "  php tools/importExport.php MetaforaExportPlugin issues <journal>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin issue-info <journal> <issueId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin export-jats-issue <journal> <issueId>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin send-jats-issue <journal> <issueId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin test-connection <journal>\n";
     }
 }

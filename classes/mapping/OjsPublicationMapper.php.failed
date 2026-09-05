@@ -15,7 +15,6 @@ use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\model\MetaforaPublication;
 use APP\submission\Submission;
 use PKP\context\Context;
-use Stringable;
 
 class OjsPublicationMapper
 {
@@ -23,18 +22,19 @@ class OjsPublicationMapper
     {
         $publication = $submission->getCurrentPublication();
 
-        if (!$publication) {
-            throw new \RuntimeException(
-                sprintf('Submission %d has no current publication.', $submission->getId())
-            );
-        }
+        file_put_contents(
+            '/tmp/metafora-publication-debug.log',
+            print_r([
+                'submissionId' => $submission->getId(),
+                'publication' => $publication,
+                'titleRaw' => $publication ? $publication->getData('title') : null,
+            ], true)
+        );
 
         $issueData = [];
         $issueId = $publication->getData('issueId');
-
         if ($issueId) {
             $issue = Repo::issue()->get((int) $issueId);
-
             if ($issue) {
                 $issueData = [
                     'id' => $issue->getId(),
@@ -49,19 +49,15 @@ class OjsPublicationMapper
 
         $authors = [];
 
-        $authorCollection = $publication->getData('authors');
-
-        if ($authorCollection) {
-            foreach ($authorCollection as $author) {
-                $authors[] = [
-                    'givenName' => $author->getData('givenName'),
-                    'familyName' => $author->getData('familyName'),
-                    'preferredPublicName' => $author->getData('preferredPublicName'),
-                    'affiliation' => $author->getData('affiliation'),
-                    'country' => $author->getData('country'),
-                    'orcid' => $author->getData('orcid'),
-                ];
-            }
+        foreach ($publication->getData('authors') as $author) {
+            $authors[] = [
+                'givenName' => $author->getData('givenName'),
+                'familyName' => $author->getData('familyName'),
+                'preferredPublicName' => $author->getData('preferredPublicName'),
+                'affiliation' => $author->getData('affiliation'),
+                'country' => $author->getData('country'),
+                'orcid' => $author->getData('orcid'),
+            ];
         }
 
         $journal = [
@@ -74,16 +70,6 @@ class OjsPublicationMapper
             'primaryLocale' => $context->getData('primaryLocale'),
         ];
 
-        $galleys = $publication->getData('galleys');
-
-        if (is_object($galleys) && method_exists($galleys, 'all')) {
-            $galleys = $galleys->all();
-        }
-
-        if (!is_array($galleys)) {
-            $galleys = [];
-        }
-
         return new MetaforaPublication(
             submissionId: $submission->getId(),
             title: $this->mapLocalizedField($publication, 'title'),
@@ -93,31 +79,40 @@ class OjsPublicationMapper
             doi: $publication->getDoi(),
             issue: $issueData,
             journal: $journal,
-            files: $this->mapFiles($galleys),
+            files: $this->mapFiles($publication->getData('galleys')->all()),
             references: $this->mapReferences($publication->getData('citationsRaw')),
             metadata: $this->mapMetadata($submission, $publication, $context),
         );
     }
 
+    /**
+     * Map publication galleys to transport-safe file descriptors.
+     *
+     * No local filesystem paths are exposed. The exporter keeps only OJS IDs
+     * and descriptive metadata; the binary transport layer resolves the file
+     * later through Repo::submissionFile().
+     */
     private function mapLocalizedField($publication, string $field): array
     {
         $result = [];
+
         $locales = [];
 
-        $primaryLocale = $publication->getData('locale');
+        if (method_exists($publication, 'getData')) {
+            $primaryLocale = $publication->getData('locale');
 
-        if (is_string($primaryLocale) && $primaryLocale !== '') {
-            $locales[] = $primaryLocale;
+            if ($primaryLocale) {
+                $locales[] = $primaryLocale;
+            }
         }
 
+        // OJS 3.5 publication settings locales
         $locales = array_unique(array_merge($locales, ['en', 'ru']));
 
         foreach ($locales as $locale) {
             $value = $publication->getData($field, $locale);
 
             if (is_string($value) && trim($value) !== '') {
-                $result[$locale] = $value;
-            } elseif (is_array($value) && $value !== []) {
                 $result[$locale] = $value;
             }
         }
@@ -131,7 +126,6 @@ class OjsPublicationMapper
 
         foreach ($galleys as $galley) {
             $submissionFileId = (int) $galley->getData('submissionFileId');
-
             $submissionFile = $submissionFileId
                 ? Repo::submissionFile()->get($submissionFileId)
                 : null;
@@ -161,41 +155,44 @@ class OjsPublicationMapper
 
     private function mapReferences(mixed $citationsRaw): array
     {
-        if ($citationsRaw instanceof Stringable) {
-            $citationsRaw = (string) $citationsRaw;
-        }
-
         if (!is_string($citationsRaw) || trim($citationsRaw) === '') {
             return [];
         }
 
-        return array_values(
-            array_filter(
-                array_map(
-                    static fn (string $reference): string => trim($reference),
-                    preg_split('/\R/u', $citationsRaw) ?: []
-                )
-            )
-        );
+        return array_values(array_filter(array_map(
+            static fn (string $reference): string => trim($reference),
+            preg_split('/\R/u', $citationsRaw) ?: []
+        )));
     }
 
-    private function mapMetadata(
-        Submission $submission,
-        $publication,
-        Context $context
-    ): array {
+    /**
+     * Additional metadata compatible with RSCI/Crossref style transport.
+     */
+    private function mapMetadata($submission, $publication, Context $context): array
+    {
         return [
             'articleId' => $submission->getId(),
+
             'publicationId' => $publication->getId(),
+
             'language' => $publication->getData('locale'),
+
             'datePublished' => $publication->getData('datePublished'),
+
             'lastModified' => $publication->getData('lastModified'),
+
             'identifiers' => [
                 'doi' => $publication->getDoi(),
+                'url' => $publication->getBestId(),
             ],
+
             'type' => 'journalArticle',
+
             'status' => 'published',
+
             'journalId' => $context->getId(),
         ];
     }
+
+}
 }

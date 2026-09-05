@@ -1,0 +1,337 @@
+<?php
+
+namespace APP\plugins\importexport\metafora;
+
+use APP\facades\Repo;
+use APP\plugins\importexport\metafora\classes\api\MetaforaApiClient;
+use APP\plugins\importexport\metafora\classes\export\ExportManager;
+use APP\plugins\importexport\metafora\classes\export\IssueArticleManager;
+use APP\plugins\importexport\metafora\classes\export\MetaforaSendManager;
+use PKP\plugins\ImportExportPlugin;
+
+class MetaforaExportPlugin extends ImportExportPlugin
+{
+    public function register($category, $path, $mainContextId = null): bool
+    {
+        $success = parent::register($category, $path, $mainContextId);
+
+        if ($success) {
+            $this->addLocaleData();
+        }
+
+        return $success;
+    }
+
+
+    public function getName(): string
+    {
+        return 'MetaforaExportPlugin';
+    }
+
+
+    public function getDisplayName(): string
+    {
+        return __('plugins.importexport.metafora.displayName');
+    }
+
+
+    public function getDescription(): string
+    {
+        return __('plugins.importexport.metafora.description');
+    }
+
+
+    public function executeCLI($scriptName, &$args): void
+    {
+        $command = array_shift($args);
+        $journalPath = array_shift($args);
+
+        if (!$command || !$journalPath) {
+            $this->usage($scriptName);
+            return;
+        }
+
+
+        $context = null;
+
+        foreach (Repo::context()->getCollector()->getMany() as $item) {
+
+            if ($item->getPath() === $journalPath) {
+                $context = $item;
+                break;
+            }
+        }
+
+
+        if (!$context) {
+            echo "Journal not found: {$journalPath}\n";
+            return;
+        }
+
+
+        try {
+
+            switch ($command) {
+
+
+                case 'issues':
+
+                    $issues = Repo::issue()
+                        ->getCollector()
+                        ->filterByContextIds([$context->getId()])
+                        ->getMany();
+
+
+                    echo "ID | Volume | Number | Year | Articles\n";
+                    echo "--------------------------------\n";
+
+
+                    foreach ($issues as $issue) {
+
+                        echo $issue->getId()
+                            . " | "
+                            . $issue->getData('volume')
+                            . " | "
+                            . $issue->getData('number')
+                            . " | "
+                            . $issue->getData('year')
+                            . " | "
+                            . "\n";
+                    }
+
+                    return;
+
+
+
+                case 'issue-info':
+
+                    $issueId = (int)array_shift($args);
+
+                    $articles = (new IssueArticleManager())
+                        ->getArticles(
+                            $issueId,
+                            $context
+                        );
+
+
+                    echo "Submission ID | DOI | Title\n";
+                    echo "--------------------------------\n";
+
+
+                    foreach ($articles as $article) {
+
+                        echo $article['submissionId']
+                            . " | "
+                            . ($article['doi'] ?? '')
+                            . " | "
+                            . ($article['title']['en']
+                                ?? $article['title']['ru']
+                                ?? '')
+                            . "\n";
+                    }
+
+                    return;
+
+
+
+                case 'export-jats':
+
+                    $manager = new ExportManager();
+
+                    $documents = $manager->exportJats([], $context);
+
+
+                    foreach ($documents as $submissionId=>$xml) {
+
+                        $file =
+                            'metafora-article-' .
+                            $submissionId .
+                            '.xml';
+
+
+                        file_put_contents(
+                            $file,
+                            $xml
+                        );
+
+
+                        echo $file . "\n";
+                    }
+
+                    return;
+
+
+
+                case 'export-jats-issue':
+
+                    $issueId = (int)array_shift($args);
+
+                    $manager = new ExportManager();
+
+                    $documents =
+                        $manager->exportJatsByIssue(
+                            $issueId,
+                            $context
+                        );
+
+
+                    $dir =
+                        'metafora-export/issue-' .
+                        $issueId;
+
+
+                    if (!is_dir($dir)) {
+                        mkdir($dir,0755,true);
+                    }
+
+
+                    foreach ($documents as $submissionId=>$xml) {
+
+                        $file =
+                            $dir .
+                            '/' .
+                            $submissionId .
+                            '.xml';
+
+
+                        file_put_contents(
+                            $file,
+                            $xml
+                        );
+
+
+                        echo $file . "\n";
+                    }
+
+                    return;
+
+
+
+                case 'test-connection':
+
+                    $apiUrl =
+                        (string)$this->getSetting(
+                            $context->getId(),
+                            'apiUrl'
+                        );
+
+
+                    $apiToken =
+                        (string)$this->getSetting(
+                            $context->getId(),
+                            'apiToken'
+                        );
+
+
+                    if (!$apiUrl || !$apiToken) {
+
+                        echo "Metafora API settings are empty\n";
+                        return;
+                    }
+
+
+                    $result =
+                        (new MetaforaApiClient(
+                            $apiUrl,
+                            $apiToken
+                        ))->testConnection();
+
+
+                    echo "HTTP: "
+                        . $result['status']
+                        . "\n";
+
+                    echo $result['body'];
+
+                    return;
+
+
+
+                case 'send-jats-issue':
+
+                    $issueId = (int)array_shift($args);
+
+
+                    $apiUrl =
+                        (string)$this->getSetting(
+                            $context->getId(),
+                            'apiUrl'
+                        );
+
+
+                    $apiToken =
+                        (string)$this->getSetting(
+                            $context->getId(),
+                            'apiToken'
+                        );
+
+
+                    if (!$apiUrl || !$apiToken) {
+
+                        echo "Metafora API settings are empty\n";
+                        return;
+                    }
+
+
+                    $client =
+                        new MetaforaApiClient(
+                            $apiUrl,
+                            $apiToken
+                        );
+
+
+                    $result =
+                        (new MetaforaSendManager(
+                            $client
+                        ))->sendIssue($issueId);
+
+
+                    foreach ($result as $item) {
+
+                        echo $item['file']
+                            . " => HTTP "
+                            . $item['status']
+                            . "\n";
+                    }
+
+                    return;
+
+
+
+                case 'export':
+
+                    $manager = new ExportManager();
+
+                    echo $manager->exportJson(
+                        [],
+                        $context
+                    );
+
+                    return;
+
+
+                default:
+
+                    $this->usage($scriptName);
+            }
+
+
+        } catch (\Throwable $e) {
+
+            echo "Export failed:\n";
+            echo $e->getMessage() . "\n";
+        }
+    }
+
+
+    public function usage($scriptName): void
+    {
+        echo "Metafora Export Plugin for OJS 3.5\n";
+        echo "Usage:\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin issues <journal>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin issue-info <journal> <issueId>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin export-jats-issue <journal> <issueId>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin send-jats-issue <journal> <issueId>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin test-connection <journal>\n";
+    }
+}

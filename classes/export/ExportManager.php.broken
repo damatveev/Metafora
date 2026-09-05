@@ -1,0 +1,170 @@
+<?php
+
+/**
+ * @file plugins/importexport/metafora/classes/export/ExportManager.php
+ *
+ * Coordinates OJS publication export to transport formats used by the Metafora plugin.
+ *
+ * @author Dmitry Matveev (Дмитрий Матвеев)
+ * @license GPL-3.0-or-later
+ */
+
+namespace APP\plugins\importexport\metafora\classes\export;
+
+use APP\facades\Repo;
+use APP\plugins\importexport\metafora\classes\mapping\OjsPublicationMapper;
+use APP\plugins\importexport\metafora\classes\validation\PublicationValidator;
+use PKP\context\Context;
+use RuntimeException;
+
+class ExportManager
+{
+    public function __construct(
+        private readonly OjsPublicationMapper $mapper = new OjsPublicationMapper(),
+        private readonly PublicationValidator $validator = new PublicationValidator(),
+    ) {
+    }
+
+    public function collect(array $submissionIds, Context $context): array
+    {
+        $publications = [];
+
+        $collector = Repo::submission()
+            ->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->filterByStatus([\STATUS_PUBLISHED]);
+
+        foreach ($collector->getMany() as $submission) {
+
+            if ($submissionIds !== [] &&
+                !in_array($submission->getId(), $submissionIds)) {
+                continue;
+            }
+
+            $publication = $this->mapper->map(
+                $submission,
+                $context
+            );
+
+            $errors = $this->validator->validate($publication);
+
+            if ($errors !== []) {
+                throw new RuntimeException(
+                    sprintf(
+                        'Submission %d failed Metafora validation: %s',
+                        $submission->getId(),
+                        implode(' ', $errors)
+                    )
+                );
+            }
+
+            $publications[] = $publication;
+        }
+
+        if ($publications === []) {
+            throw new RuntimeException(
+                'No published publications found.'
+            );
+        }
+
+        return $publications;
+    }
+
+    public function exportJson(array $submissionIds, Context $context): string
+    {
+        $publications = $this->collect($submissionIds, $context);
+
+        return (new MetaforaApiSerializer())
+            ->serialize($publications);
+    }
+
+    public function exportJats(array $submissionIds, Context $context): array
+    {
+        $publications = $this->collect($submissionIds, $context);
+        $builder = new JatsArticleBuilder();
+
+        $schemaPath = dirname(__DIR__, 2)
+            . '/schemas/jats/JATS-archive-oasis-article1-4.xsd';
+
+        $validator = new \APP\plugins\importexport\metafora\classes\validation\JatsValidator(
+            $schemaPath
+        );
+
+        $result = [];
+
+        foreach ($publications as $publication) {
+            $xml = $builder->build($publication);
+            $validator->validate($xml);
+
+            $result[$publication->submissionId] = $xml;
+        }
+
+        return $result;
+    }
+
+
+    public function collectByIssue(int $issueId, Context $context): array
+    {
+        $publications = [];
+
+        $submissions = Repo::submission()
+            ->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->filterByIssueIds([$issueId])
+            ->filterByStatus([STATUS_PUBLISHED])
+            ->getMany();
+
+        foreach ($submissions as $submission) {
+
+            $publication = $this->mapper->map(
+                $submission,
+                $context
+            );
+
+            $errors = $this->validator->validate($publication);
+
+            if ($errors !== []) {
+                throw new \RuntimeException(
+                    sprintf(
+                        'Submission %d failed Metafora validation: %s',
+                        $submission->getId(),
+                        implode(' ', $errors)
+                    )
+                );
+            }
+
+            $publications[] = $publication;
+        }
+
+        return $publications;
+    }
+
+
+    public function exportJatsByIssue(int $issueId, Context $context): array
+    {
+        $publications = $this->collectByIssue($issueId, $context);
+
+        $builder = new JatsArticleBuilder();
+
+        $schemaPath = dirname(__DIR__, 2)
+            . '/schemas/jats/JATS-archive-oasis-article1-4.xsd';
+
+        $validator = new \APP\plugins\importexport\metafora\classesalidation\JatsValidator(
+            $schemaPath
+        );
+
+        $result = [];
+
+        foreach ($publications as $publication) {
+
+            $xml = $builder->build($publication);
+
+            $validator->validate($xml);
+
+            $result[$publication->submissionId] = $xml;
+        }
+
+        return $result;
+    }
+
+}

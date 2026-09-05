@@ -1,0 +1,5 @@
+msgid "plugins.importexport.metafora.displayName"
+msgstr "Экспорт в ИС Метафора"
+
+msgid "plugins.importexport.metafora.description"
+msgstr "Модуль экспорта публикаций OJS в информационную систему Метафора."

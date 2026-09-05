@@ -22,6 +22,15 @@ class OjsPublicationMapper
     {
         $publication = $submission->getCurrentPublication();
 
+        file_put_contents(
+            '/tmp/metafora-publication-debug.log',
+            print_r([
+                'submissionId' => $submission->getId(),
+                'publication' => $publication,
+                'titleRaw' => $publication ? $publication->getData('title') : null,
+            ], true)
+        );
+
         $issueData = [];
         $issueId = $publication->getData('issueId');
         if ($issueId) {
@@ -39,7 +48,8 @@ class OjsPublicationMapper
         }
 
         $authors = [];
-        foreach ((array) $publication->getData('authors') as $author) {
+
+        foreach ($publication->getData('authors') as $author) {
             $authors[] = [
                 'givenName' => $author->getData('givenName'),
                 'familyName' => $author->getData('familyName'),
@@ -62,14 +72,14 @@ class OjsPublicationMapper
 
         return new MetaforaPublication(
             submissionId: $submission->getId(),
-            title: (array) $publication->getData('title'),
-            abstract: (array) $publication->getData('abstract'),
+            title: $this->mapLocalizedField($publication, 'title'),
+            abstract: $this->mapLocalizedField($publication, 'abstract'),
             authors: $authors,
-            keywords: (array) $publication->getData('keywords'),
+            keywords: $this->mapLocalizedField($publication, 'keywords'),
             doi: $publication->getDoi(),
             issue: $issueData,
             journal: $journal,
-            files: $this->mapFiles((array) $publication->getData('galleys')),
+            files: $this->mapFiles($publication->getData('galleys')->all()),
             references: $this->mapReferences($publication->getData('citationsRaw')),
         );
     }
@@ -81,6 +91,34 @@ class OjsPublicationMapper
      * and descriptive metadata; the binary transport layer resolves the file
      * later through Repo::submissionFile().
      */
+    private function mapLocalizedField($publication, string $field): array
+    {
+        $result = [];
+
+        $locales = [];
+
+        if (method_exists($publication, 'getData')) {
+            $primaryLocale = $publication->getData('locale');
+
+            if ($primaryLocale) {
+                $locales[] = $primaryLocale;
+            }
+        }
+
+        // OJS 3.5 publication settings locales
+        $locales = array_unique(array_merge($locales, ['en', 'ru']));
+
+        foreach ($locales as $locale) {
+            $value = $publication->getData($field, $locale);
+
+            if (is_string($value) && trim($value) !== '') {
+                $result[$locale] = $value;
+            }
+        }
+
+        return $result;
+    }
+
     private function mapFiles(array $galleys): array
     {
         $files = [];
@@ -91,11 +129,17 @@ class OjsPublicationMapper
                 ? Repo::submissionFile()->get($submissionFileId)
                 : null;
 
+            $remoteUrl = $galley->getData('urlRemote');
+
+            if (!$submissionFileId && !$remoteUrl) {
+                continue;
+            }
+
             $files[] = [
                 'galleyId' => $galley->getId(),
                 'label' => $galley->getLabel(),
                 'locale' => $galley->getData('locale'),
-                'remoteUrl' => $galley->getData('urlRemote'),
+                'remoteUrl' => $remoteUrl,
                 'doi' => $galley->getDoi(),
                 'submissionFileId' => $submissionFileId ?: null,
                 'fileId' => $submissionFile?->getData('fileId'),

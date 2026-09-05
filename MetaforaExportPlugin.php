@@ -178,13 +178,23 @@ class MetaforaExportPlugin extends ImportExportPlugin
             return;
         }
 
-        $request = app()->get('request');
-        $context = $request->getContext();
+        $journalPath = array_shift($args);
 
-        if (!$context) {
-            echo "No journal context found.\n";
+        if (!$journalPath) {
+            echo "Usage:\n";
+            echo "php tools/importExport.php MetaforaExportPlugin export journalPath\n";
             return;
         }
+
+        $journalDao = \DAORegistry::getDAO('JournalDAO');
+        $journal = $journalDao->getByPath($journalPath);
+
+        if (!$journal) {
+            echo "Journal not found: {$journalPath}\n";
+            return;
+        }
+
+        $context = $journal;
 
         $submissions = \APP\facades\Repo::submission()
             ->getCollector()
@@ -203,15 +213,13 @@ class MetaforaExportPlugin extends ImportExportPlugin
         }
 
         try {
+
             $json = (new \APP\plugins\importexport\metafora\classes\export\ExportManager())
                 ->exportJson($ids, $context);
 
             $file = 'metafora-export-' . date('Ymd-His') . '.json';
 
-            file_put_contents(
-                $file,
-                $json
-            );
+            file_put_contents($file, $json);
 
             echo "Export completed:\n";
             echo $file . "\n";

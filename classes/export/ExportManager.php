@@ -29,31 +29,42 @@ class ExportManager
     {
         $publications = [];
 
-        foreach (array_unique(array_map('intval', $submissionIds)) as $submissionId) {
-            if ($submissionId <= 0) {
+        $collector = Repo::submission()
+            ->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->filterByStatus([\STATUS_PUBLISHED]);
+
+        foreach ($collector->getMany() as $submission) {
+
+            if ($submissionIds !== [] &&
+                !in_array($submission->getId(), $submissionIds)) {
                 continue;
             }
 
-            $submission = Repo::submission()->get($submissionId);
-            if (!$submission || (int) $submission->getData('contextId') !== $context->getId()) {
-                continue;
-            }
+            $publication = $this->mapper->map(
+                $submission,
+                $context
+            );
 
-            $publication = $this->mapper->map($submission, $context);
             $errors = $this->validator->validate($publication);
+
             if ($errors !== []) {
-                throw new RuntimeException(sprintf(
-                    'Submission %d failed Metafora validation: %s',
-                    $submissionId,
-                    implode(' ', $errors)
-                ));
+                throw new RuntimeException(
+                    sprintf(
+                        'Submission %d failed Metafora validation: %s',
+                        $submission->getId(),
+                        implode(' ', $errors)
+                    )
+                );
             }
 
             $publications[] = $publication;
         }
 
         if ($publications === []) {
-            throw new RuntimeException('No valid publications selected for Metafora export.');
+            throw new RuntimeException(
+                'No published publications found.'
+            );
         }
 
         return $publications;

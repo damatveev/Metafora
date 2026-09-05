@@ -226,6 +226,9 @@ class MetaforaExportPlugin extends ImportExportPlugin
     public function usage($scriptName): void
     {
         echo "Metafora Export Plugin for OJS 3.5\n";
-        echo "CLI export is not enabled in this development build.\n";
+        echo "Usage:\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin export\n";
+        echo "\n";
+        echo "Exports all submissions from current journal context to JSON.\n";
     }
 }

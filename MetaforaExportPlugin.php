@@ -171,7 +171,56 @@ class MetaforaExportPlugin extends ImportExportPlugin
      */
     public function executeCLI($scriptName, &$args)
     {
-        $this->usage($scriptName);
+        $command = array_shift($args);
+
+        if ($command !== 'export') {
+            $this->usage($scriptName);
+            return;
+        }
+
+        $request = app()->get('request');
+        $context = $request->getContext();
+
+        if (!$context) {
+            echo "No journal context found.\n";
+            return;
+        }
+
+        $submissions = \APP\facades\Repo::submission()
+            ->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->getMany();
+
+        $ids = [];
+
+        foreach ($submissions as $submission) {
+            $ids[] = $submission->getId();
+        }
+
+        if ($ids === []) {
+            echo "No submissions found.\n";
+            return;
+        }
+
+        try {
+            $json = (new \APP\plugins\importexport\metafora\classes\export\ExportManager())
+                ->exportJson($ids, $context);
+
+            $file = 'metafora-export-' . date('Ymd-His') . '.json';
+
+            file_put_contents(
+                $file,
+                $json
+            );
+
+            echo "Export completed:\n";
+            echo $file . "\n";
+
+        } catch (\Throwable $e) {
+
+            echo "Export failed:\n";
+            echo $e->getMessage() . "\n";
+        }
     }
 
     public function usage($scriptName): void

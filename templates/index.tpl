@@ -19,7 +19,7 @@
 		</ul>
 
 		<div id="settings-tab">
-			{$metaforaSettingsForm nofilter}
+			{include file=$metaforaSettingsTemplate}
 		</div>
 
 		<div id="articles-tab">

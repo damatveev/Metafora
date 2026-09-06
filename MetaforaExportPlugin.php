@@ -111,14 +111,16 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
                 $settingsForm = new MetaforaSettingsForm($this, $context->getId());
                 $settingsForm->initData();
-                $templateMgr->assign('metaforaExportFormats', [
-                    'jats' => __('plugins.importexport.metafora.settings.format.jats'),
-                ]);
 
                 $templateMgr->assign([
                     'pageTitle' => $this->getDisplayName(),
                     'pageComponent' => 'ImportExportPage',
-                    'metaforaSettingsForm' => $settingsForm->fetch($request),
+                    'metaforaSettingsTemplate' => $this->getTemplateResource('settingsForm.tpl'),
+                    'apiUrl' => $settingsForm->getData('apiUrl'),
+                    'apiToken' => $settingsForm->getData('apiToken'),
+                    'validateXml' => (bool) $settingsForm->getData('validateXml'),
+                    'includePdf' => (bool) $settingsForm->getData('includePdf'),
+                    'includeReferences' => (bool) $settingsForm->getData('includeReferences'),
                 ]);
                 $templateMgr->display($this->getTemplateResource('index.tpl'));
                 return;

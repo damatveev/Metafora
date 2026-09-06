@@ -42,7 +42,6 @@ class MetaforaPublication
             'files' => $this->files,
             'references' => $this->references,
             'metadata' => $this->metadata,
-            'metadata' => $this->metadata,
         ];
     }
 }

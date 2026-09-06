@@ -1,6 +1,6 @@
 <?php
 
-namespace APP\plugins\importexport\metafora;
+namespace APP\plugins\importexport\metafora\classes\form;
 
 use APP\template\TemplateManager;
 use PKP\form\Form;
@@ -27,8 +27,11 @@ class MetaforaSettingsForm extends Form
         foreach ($this->getFormFields() as $fieldName => $fieldType) {
             $this->setData($fieldName, $this->plugin->getSetting($this->contextId, $fieldName));
         }
-        if (!$this->getData('exportFormat')) {
-            $this->setData('exportFormat', 'api');
+        if (!$this->getData('apiUrl')) {
+            $this->setData('apiUrl', 'https://metafora.rcsi.science/api/v2');
+        }
+        if (!$this->getData('apiTestEndpoint')) {
+            $this->setData('apiTestEndpoint', 'files/status/?file_uid=00000000-0000-0000-0000-000000000000');
         }
     }
 
@@ -47,12 +50,21 @@ class MetaforaSettingsForm extends Form
 
     public function fetch($request, $template = null, $display = false)
     {
-        TemplateManager::getManager($request)->assign('exportFormats', [
-            'api' => __('plugins.importexport.metafora.settings.format.api'),
-            'journal' => __('plugins.importexport.metafora.settings.format.journal'),
-            'jats' => __('plugins.importexport.metafora.settings.format.jats'),
-            'scienceSpace' => __('plugins.importexport.metafora.settings.format.scienceSpace'),
+        $templateMgr = TemplateManager::getManager($request);
+
+
+        $formData = [];
+
+        foreach ($this->getFormFields() as $fieldName => $fieldType) {
+            $formData[$fieldName] = $this->getData($fieldName);
+        }
+
+
+        $templateMgr->assign([
+            'formData' => $formData,
+            'includePdf' => $this->getData('includePdf'),
         ]);
+
         return parent::fetch($request, $template, $display);
     }
 
@@ -62,11 +74,7 @@ class MetaforaSettingsForm extends Form
             'apiUrl' => 'string',
             'apiToken' => 'string',
             'apiTestEndpoint' => 'string',
-            'exportFormat' => 'string',
-            'validateXml' => 'bool',
             'includePdf' => 'bool',
-            'includeReferences' => 'bool',
-            'autoExport' => 'bool',
         ];
     }
 }

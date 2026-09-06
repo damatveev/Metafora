@@ -57,3 +57,30 @@ msgstr "The server returned an error. HTTP {$status}."
 
 msgid "plugins.importexport.metafora.connection.error"
 msgstr "Unable to connect to Metafora. Check the API URL and network settings."
+
+msgid "plugins.importexport.metafora.tab.articles"
+msgstr "Articles"
+
+msgid "plugins.importexport.metafora.tab.issues"
+msgstr "Issues"
+
+msgid "plugins.importexport.metafora.send.articles"
+msgstr "Send selected articles to Metafora"
+
+msgid "plugins.importexport.metafora.send.issues"
+msgstr "Send selected issues to Metafora"
+
+msgid "plugins.importexport.metafora.settings.jatsNotice"
+msgstr "Before upload, data is generated as JATS 1.4 and validated against the official Metafora XSD."
+
+msgid "plugins.importexport.metafora.error.settingsRequired"
+msgstr "Configure the API URL and API token before sending publications."
+
+msgid "plugins.importexport.metafora.error.noSubmissionsSelected"
+msgstr "No article was selected."
+
+msgid "plugins.importexport.metafora.error.noIssuesSelected"
+msgstr "No issue was selected."
+
+msgid "plugins.importexport.metafora.error.noPublishedArticles"
+msgstr "The selected objects contain no published articles to send."

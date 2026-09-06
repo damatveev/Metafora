@@ -2,7 +2,7 @@ name: Build plugin package
 
 on:
   push:
-    branches: [develop]
+    branches: [develop, develop-metafora-export]
   workflow_dispatch:
 
 jobs:
@@ -17,18 +17,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f plugins/importexport/metafora/index.php
-          test -f plugins/importexport/metafora/MetaforaExportPlugin.php
-          test -f plugins/importexport/metafora/version.xml
-          test -d plugins/importexport/metafora/locale
-          test -d plugins/importexport/metafora/templates
+          test -f index.php
+          test -f MetaforaExportPlugin.php
+          test -f version.xml
+          test -d locale
+          test -d templates
 
       - name: Build ZIP
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist/metafora
-          cp -a plugins/importexport/metafora/. dist/metafora/
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='dist' \
+            --exclude='*.bak' \
+            --exclude='*.before_*' \
+            --exclude='*.broken*' \
+            --exclude='*.bad_*' \
+            --exclude='*.error' \
+            --exclude='*.failed' \
+            ./ dist/metafora/
           cd dist
           zip -r metafora-ojs35.zip metafora
 

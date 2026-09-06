@@ -18,11 +18,11 @@ use InvalidArgumentException;
 class MetaforaApiClient
 {
     /** Official Metafora API v2 file operations verified from the RCSI documentation. */
-    public const ENDPOINT_JATS_XML = 'files/jats/xml';
-    public const ENDPOINT_JATS_XML_PDF = 'files/jats/xml_pdf';
-    public const ENDPOINT_JOURNAL_XML = 'files/journal';
-    public const ENDPOINT_PDF = 'files/pdf';
-    public const ENDPOINT_STATUS = 'files/status';
+    public const ENDPOINT_JATS_XML = 'files/jats/xml/';
+    public const ENDPOINT_JATS_XML_PDF = 'files/jats/xml_pdf/';
+    public const ENDPOINT_JOURNAL_XML = 'files/journal/';
+    public const ENDPOINT_PDF = 'files/pdf/';
+    public const ENDPOINT_STATUS = 'files/status/';
 
     private Client $client;
     private string $apiUrl;
@@ -92,6 +92,9 @@ class MetaforaApiClient
      */
     public function testConnection(string $endpoint = ''): array
     {
+        if (trim($endpoint) === '') {
+            $endpoint = self::ENDPOINT_STATUS . '?file_uid=00000000-0000-0000-0000-000000000000';
+        }
         return $this->request('GET', $endpoint);
     }
 
@@ -106,40 +109,20 @@ class MetaforaApiClient
     }
 
     /**
-     * Send publication metadata JSON to Metafora API.
-     */
-    public function sendPublication(array $payload): array
-    {
-        return $this->request(
-            'POST',
-            'publications',
-            [
-                'headers' => [
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => $payload,
-            ]
-        );
-    }
-
-
-    /**
      * Upload PDF file.
      */
-    public function uploadPdf(string $filePath, string $publicationId): array
+    public function uploadPdf(string $filePath, string $fileUid): array
     {
         return $this->request(
             'POST',
-            self::ENDPOINT_PDF,
+            self::ENDPOINT_PDF . '?file_uid=' . rawurlencode($fileUid),
             [
                 'multipart' => [
                     [
-                        'name' => 'publicationId',
-                        'contents' => $publicationId,
-                    ],
-                    [
-                        'name' => 'file',
+                        'name' => 'pdf',
                         'contents' => fopen($filePath, 'r'),
+                        'filename' => basename($filePath),
+                        'headers' => ['Content-Type' => 'application/pdf'],
                     ],
                 ],
             ]
@@ -166,9 +149,14 @@ class MetaforaApiClient
             [
                 'multipart' => [
                     [
-                        'name' => 'file',
+                        'name' => 'xml',
                         'contents' => fopen($filePath, 'r'),
                         'filename' => basename($filePath),
+                        'headers' => ['Content-Type' => 'application/xml'],
+                    ],
+                    [
+                        'name' => 'platform',
+                        'contents' => 'OJS',
                     ],
                 ],
             ]
@@ -205,11 +193,17 @@ class MetaforaApiClient
                         'name' => 'xml',
                         'contents' => fopen($xmlPath, 'r'),
                         'filename' => basename($xmlPath),
+                        'headers' => ['Content-Type' => 'application/xml'],
                     ],
                     [
                         'name' => 'pdf',
                         'contents' => fopen($pdfPath, 'r'),
                         'filename' => basename($pdfPath),
+                        'headers' => ['Content-Type' => 'application/pdf'],
+                    ],
+                    [
+                        'name' => 'platform',
+                        'contents' => 'OJS',
                     ],
                 ],
             ]
@@ -226,7 +220,7 @@ class MetaforaApiClient
 
         return $this->request(
             'GET',
-            self::ENDPOINT_STATUS . '/' . urlencode($identifier)
+            self::ENDPOINT_STATUS . '?file_uid=' . rawurlencode($identifier)
         );
     }
 

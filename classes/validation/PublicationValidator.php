@@ -47,7 +47,7 @@ class PublicationValidator
         }
 
         foreach ($publication->files as $index => $file) {
-            $remoteUrl = trim((string) ($file['urlRemote'] ?? ''));
+            $remoteUrl = trim((string) ($file['remoteUrl'] ?? ''));
             $submissionFileId = (int) ($file['submissionFileId'] ?? 0);
             if ($remoteUrl === '' && $submissionFileId <= 0) {
                 $errors[] = sprintf('File #%d has neither remote URL nor submissionFileId.', $index + 1);

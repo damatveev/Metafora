@@ -57,3 +57,30 @@ msgstr "Сервер ответил ошибкой. HTTP {$status}."
 
 msgid "plugins.importexport.metafora.connection.error"
 msgstr "Не удалось установить соединение с ИС Метафора. Проверьте URL и настройки сети."
+
+msgid "plugins.importexport.metafora.tab.articles"
+msgstr "Статьи"
+
+msgid "plugins.importexport.metafora.tab.issues"
+msgstr "Выпуски"
+
+msgid "plugins.importexport.metafora.send.articles"
+msgstr "Отправить выбранные статьи в Метафору"
+
+msgid "plugins.importexport.metafora.send.issues"
+msgstr "Отправить выбранные выпуски в Метафору"
+
+msgid "plugins.importexport.metafora.settings.jatsNotice"
+msgstr "Перед отправкой данные автоматически формируются в JATS 1.4 и проверяются по официальной XSD-схеме Метафоры."
+
+msgid "plugins.importexport.metafora.error.settingsRequired"
+msgstr "Сначала укажите URL API и API-токен в настройках модуля."
+
+msgid "plugins.importexport.metafora.error.noSubmissionsSelected"
+msgstr "Не выбрана ни одна статья."
+
+msgid "plugins.importexport.metafora.error.noIssuesSelected"
+msgstr "Не выбран ни один выпуск."
+
+msgid "plugins.importexport.metafora.error.noPublishedArticles"
+msgstr "В выбранных объектах нет опубликованных статей для отправки."

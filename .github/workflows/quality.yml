@@ -2,9 +2,9 @@ name: Plugin quality
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, develop-metafora-export]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, develop-metafora-export]
 
 jobs:
   syntax:
@@ -28,14 +28,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find plugins/importexport/metafora -type f -name '*.php' -print0 \
+          find . -type f -name '*.php' \
+            -not -path './.git/*' \
+            -not -name '*.bak' \
+            -not -name '*.before_*' \
+            -not -name '*.broken*' \
+            -not -name '*.bad_*' \
+            -not -name '*.error' \
+            -not -name '*.failed' \
+            -print0 \
             | xargs -0 -n1 php -l
 
       - name: Parse XML metadata
         shell: bash
         run: |
           set -euo pipefail
-          php -r '$d=new DOMDocument(); if (!$d->load("plugins/importexport/metafora/version.xml")) { exit(1); }'
+          php -r '$d=new DOMDocument(); if (!$d->load("version.xml")) { exit(1); }'
 
       - name: Check committed secrets
         shell: bash

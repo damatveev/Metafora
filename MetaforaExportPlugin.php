@@ -113,26 +113,46 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
             case 'sendSubmissions':
                 $submissionIds = $this->normalizeIds((array) $request->getUserVar('selectedSubmissions'));
+                $documents = [];
+                $error = $submissionIds === []
+                    ? __('plugins.importexport.metafora.error.noSubmissionsSelected')
+                    : null;
+                if ($error === null) {
+                    try {
+                        $documents = (new ExportManager())->exportJats($submissionIds, $context);
+                    } catch (Throwable $exception) {
+                        $error = $exception->getMessage();
+                    }
+                }
                 $this->sendAndDownloadReport(
-                    $submissionIds === [] ? [] : (new ExportManager())->exportJats($submissionIds, $context),
+                    $documents,
                     $context,
-                    $submissionIds === [] ? __('plugins.importexport.metafora.error.noSubmissionsSelected') : null
+                    $error
                 );
                 return;
 
             case 'sendIssues':
                 $issueIds = $this->normalizeIds((array) $request->getUserVar('selectedIssues'));
                 $documents = [];
-                $manager = new ExportManager();
-                foreach ($issueIds as $issueId) {
-                    foreach ($manager->exportJatsByIssue($issueId, $context) as $submissionId => $xml) {
-                        $documents[$submissionId] = $xml;
+                $error = $issueIds === []
+                    ? __('plugins.importexport.metafora.error.noIssuesSelected')
+                    : null;
+                if ($error === null) {
+                    try {
+                        $manager = new ExportManager();
+                        foreach ($issueIds as $issueId) {
+                            foreach ($manager->exportJatsByIssue($issueId, $context) as $submissionId => $xml) {
+                                $documents[$submissionId] = $xml;
+                            }
+                        }
+                    } catch (Throwable $exception) {
+                        $error = $exception->getMessage();
                     }
                 }
                 $this->sendAndDownloadReport(
                     $documents,
                     $context,
-                    $issueIds === [] ? __('plugins.importexport.metafora.error.noIssuesSelected') : null
+                    $error
                 );
                 return;
 
@@ -146,6 +166,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
      */
     private function sendAndDownloadReport(array $documents, Context $context, ?string $initialError = null): void
     {
+        @set_time_limit(0);
         $items = [];
 
         if ($initialError !== null) {

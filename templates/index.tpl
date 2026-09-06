@@ -19,10 +19,7 @@
 		</ul>
 
 		<div id="settings-tab">
-			{capture assign=metaforaSettingsUrl}
-				{url router=PKP\core\PKPApplication::ROUTE_COMPONENT component="grid.settings.plugins.settingsPluginGridHandler" op="manage" plugin="MetaforaExportPlugin" category="importexport" verb="index" escape=false}
-			{/capture}
-			{load_url_in_div id="metaforaSettingsContainer" url=$metaforaSettingsUrl}
+			{$metaforaSettingsForm nofilter}
 		</div>
 
 		<div id="articles-tab">

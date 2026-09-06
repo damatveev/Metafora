@@ -15,6 +15,7 @@ use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\model\MetaforaPublication;
 use APP\submission\Submission;
 use PKP\context\Context;
+use PKP\facades\Locale;
 use Stringable;
 
 class OjsPublicationMapper
@@ -53,11 +54,13 @@ class OjsPublicationMapper
 
         if ($authorCollection) {
             foreach ($authorCollection as $author) {
+                $affiliations = $this->mapAffiliations($author);
                 $authors[] = [
                     'givenName' => $author->getData('givenName'),
                     'familyName' => $author->getData('familyName'),
                     'preferredPublicName' => $author->getData('preferredPublicName'),
-                    'affiliation' => $author->getData('affiliation'),
+                    'affiliation' => $affiliations[0]['organization'] ?? $author->getData('affiliation'),
+                    'affiliations' => $affiliations,
                     'country' => $author->getData('country'),
                     'orcid' => $author->getData('orcid'),
                 ];
@@ -190,6 +193,11 @@ class OjsPublicationMapper
             'language' => $publication->getData('locale'),
             'datePublished' => $publication->getData('datePublished'),
             'lastModified' => $publication->getData('lastModified'),
+            'pages' => $this->mapPages($publication),
+            'licenseUrl' => $publication->getData('licenseUrl'),
+            'copyrightHolder' => $publication->getData('copyrightHolder'),
+            'copyrightYear' => $publication->getData('copyrightYear'),
+            'urlPath' => $publication->getData('urlPath'),
             'identifiers' => [
                 'doi' => $publication->getDoi(),
             ],
@@ -197,5 +205,126 @@ class OjsPublicationMapper
             'status' => 'published',
             'journalId' => $context->getId(),
         ];
+    }
+
+    /**
+     * OJS 3.5 stores affiliation names separately and keeps the author's
+     * country as an ISO code, but has no dedicated city field. Preserve the
+     * organization and extract location only from unambiguous suffixes.
+     */
+    private function mapAffiliations($author): array
+    {
+        $values = [];
+        if (method_exists($author, 'getAffiliations')) {
+            foreach ($author->getAffiliations() as $affiliation) {
+                $name = method_exists($affiliation, 'getName')
+                    ? $affiliation->getName()
+                    : $affiliation->getData('name');
+                if (is_array($name)) {
+                    foreach ($name as $locale => $localizedName) {
+                        if (is_string($localizedName) && trim($localizedName) !== '') {
+                            $values[] = ['locale' => (string) $locale, 'name' => trim($localizedName)];
+                        }
+                    }
+                } elseif (is_string($name) && trim($name) !== '') {
+                    $values[] = ['locale' => null, 'name' => trim($name)];
+                }
+            }
+        }
+
+        if ($values === []) {
+            $legacy = $author->getData('affiliation');
+            if (is_array($legacy)) {
+                foreach ($legacy as $locale => $localizedName) {
+                    if (is_string($localizedName) && trim($localizedName) !== '') {
+                        $values[] = ['locale' => (string) $locale, 'name' => trim($localizedName)];
+                    }
+                }
+            } elseif (is_string($legacy) && trim($legacy) !== '') {
+                $values[] = ['locale' => null, 'name' => trim($legacy)];
+            }
+        }
+
+        $countryCode = strtoupper(trim((string) $author->getData('country')));
+        $countryName = $this->countryName($countryCode);
+
+        $result = [];
+        foreach ($values as $value) {
+            foreach (preg_split('/\s*;\s*/u', $value['name']) ?: [] as $part) {
+                if (trim($part) === '') {
+                    continue;
+                }
+                $mapped = $this->splitAffiliation(trim($part), $countryCode, $countryName);
+                $mapped['locale'] = $value['locale'];
+                $result[] = $mapped;
+            }
+        }
+        return $result;
+    }
+
+    private function splitAffiliation(string $value, string $countryCode, string $countryName): array
+    {
+        $organization = trim($value);
+        $city = '';
+        $country = $countryName ?: $countryCode;
+
+        if (preg_match('/^(.*?)\s*\(([^()]*)\)\s*$/u', $organization, $matches)) {
+            $organization = trim($matches[1]);
+            $location = array_values(array_filter(array_map('trim', explode(',', $matches[2]))));
+            $city = $location[0] ?? '';
+            $country = $location[1] ?? $country;
+        } else {
+            $parts = array_values(array_filter(array_map('trim', explode(',', $organization))));
+            if (count($parts) >= 3) {
+                $country = (string) array_pop($parts);
+                $city = (string) array_pop($parts);
+                $organization = implode(', ', $parts);
+            } elseif (count($parts) === 2 && $countryCode !== '') {
+                $city = (string) array_pop($parts);
+                $organization = implode(', ', $parts);
+            }
+        }
+
+        return [
+            'organization' => $organization,
+            'city' => $city,
+            'country' => $country,
+            'formatted' => $organization . ($city !== '' || $country !== ''
+                ? ' (' . implode(', ', array_filter([$city, $country])) . ')'
+                : ''),
+        ];
+    }
+
+    private function countryName(string $countryCode): string
+    {
+        if ($countryCode === '') {
+            return '';
+        }
+        foreach (Locale::getCountries() as $country) {
+            if (strtoupper($country->getAlpha2()) === $countryCode) {
+                return $country->getLocalName();
+            }
+        }
+        return $countryCode;
+    }
+
+    private function mapPages($publication): ?string
+    {
+        $pages = trim((string) $publication->getData('pages'));
+        if ($pages !== '') {
+            return $pages;
+        }
+
+        $urlPath = trim((string) $publication->getData('urlPath'));
+        if (preg_match('/^\d+\s*[-–—]\s*\d+$/u', $urlPath)) {
+            return $urlPath;
+        }
+
+        $doi = trim((string) $publication->getDoi());
+        if (preg_match('/(\d+[-–—]\d+)$/u', $doi, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 }

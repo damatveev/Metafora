@@ -84,3 +84,6 @@ msgstr "No issue was selected."
 
 msgid "plugins.importexport.metafora.error.noPublishedArticles"
 msgstr "The selected objects contain no published articles to send."
+
+msgid "plugins.importexport.metafora.error.pdfRequired"
+msgstr "No published PDF file was found. The article was skipped because PDF upload is enabled."

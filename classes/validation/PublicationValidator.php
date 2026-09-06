@@ -40,6 +40,18 @@ class PublicationValidator
             }
         }
 
+        if (!$this->hasLocalizedValue($publication->abstract)) {
+            $errors[] = 'Publication abstract is required.';
+        }
+
+        if (!$this->hasLocalizedValue($publication->keywords)) {
+            $errors[] = 'Publication keywords are required.';
+        }
+
+        if (trim((string) ($publication->metadata['pages'] ?? '')) === '') {
+            $errors[] = 'Publication pages are required.';
+        }
+
         $printIssn = trim((string) ($publication->journal['printIssn'] ?? ''));
         $onlineIssn = trim((string) ($publication->journal['onlineIssn'] ?? ''));
         if ($printIssn === '' && $onlineIssn === '') {
@@ -61,6 +73,9 @@ class PublicationValidator
     {
         foreach ($values as $value) {
             if (is_string($value) && trim(strip_tags($value)) !== '') {
+                return true;
+            }
+            if (is_array($value) && $this->hasLocalizedValue($value)) {
                 return true;
             }
         }

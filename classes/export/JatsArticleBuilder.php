@@ -18,7 +18,7 @@ use RuntimeException;
 
 class JatsArticleBuilder
 {
-    public function build(MetaforaPublication $publication): string
+    public function build(MetaforaPublication $publication, bool $includeReferences = true): string
     {
         $doc = new DOMDocument('1.0', 'UTF-8');
         $doc->formatOutput = true;
@@ -29,6 +29,11 @@ class JatsArticleBuilder
         $article->setAttribute('article-type', 'research-article');
         $article->setAttribute('dtd-version', '1.4');
         $article->setAttribute('xml:lang', $language ?: 'en');
+        $article->setAttributeNS(
+            'http://www.w3.org/2000/xmlns/',
+            'xmlns:xlink',
+            'http://www.w3.org/1999/xlink'
+        );
 
         $doc->appendChild($article);
 
@@ -41,7 +46,7 @@ class JatsArticleBuilder
         $body = $doc->createElement('body');
         $article->appendChild($body);
 
-        if ($publication->references !== []) {
+        if ($includeReferences && $publication->references !== []) {
             $back = $doc->createElement('back');
             $article->appendChild($back);
             $this->appendReferences($doc, $back, $publication->references);
@@ -150,6 +155,9 @@ class JatsArticleBuilder
             );
         }
 
+        $this->appendPages($doc, $articleMeta, (string) ($publication->metadata['pages'] ?? ''));
+        $this->appendPermissions($doc, $articleMeta, $publication);
+
         $this->appendAbstracts($doc, $articleMeta, $publication->abstract);
         $this->appendKeywords($doc, $articleMeta, $publication->keywords);
     }
@@ -238,18 +246,95 @@ class JatsArticleBuilder
                 $contrib->appendChild($contribId);
             }
 
-            $affiliation = $this->localized($author['affiliation'] ?? null);
+            $affiliations = [];
+            foreach ((array) ($author['affiliations'] ?? []) as $candidate) {
+                if (is_array($candidate) && trim((string) ($candidate['formatted'] ?? '')) !== '') {
+                    $affiliations[] = $candidate;
+                }
+            }
+            if ($affiliations === []) {
+                $fallback = $this->localized($author['affiliation'] ?? null);
+                if ($fallback !== '') {
+                    $affiliations[] = ['formatted' => $fallback, 'locale' => null];
+                }
+            }
 
-            if ($affiliation !== '') {
+            foreach ($affiliations as $affiliation) {
                 $aff = $doc->createElement('aff');
                 $aff->appendChild(
                     $doc->createElement(
                         'institution',
-                        $this->text($affiliation)
+                        $this->text($affiliation['formatted'])
                     )
                 );
+                if (!empty($affiliation['locale'])) {
+                    $aff->setAttribute('xml:lang', (string) $affiliation['locale']);
+                }
                 $contrib->appendChild($aff);
             }
+        }
+    }
+
+    private function appendPages(DOMDocument $doc, DOMElement $articleMeta, string $pages): void
+    {
+        $pages = trim($pages);
+        if ($pages === '') {
+            return;
+        }
+
+        $parts = preg_split('/\s*[-–—]\s*/u', $pages, 2) ?: [];
+        if (count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '') {
+            $articleMeta->appendChild($doc->createElement('fpage', $this->text($parts[0])));
+            $articleMeta->appendChild($doc->createElement('lpage', $this->text($parts[1])));
+            return;
+        }
+
+        $articleMeta->appendChild($doc->createElement('elocation-id', $this->text($pages)));
+    }
+
+    private function appendPermissions(
+        DOMDocument $doc,
+        DOMElement $articleMeta,
+        MetaforaPublication $publication
+    ): void {
+        $licenseUrl = trim((string) ($publication->metadata['licenseUrl'] ?? ''));
+        $copyrightYear = trim((string) ($publication->metadata['copyrightYear'] ?? ''));
+        $copyrightHolders = $publication->metadata['copyrightHolder'] ?? [];
+        if ($licenseUrl === '' && $copyrightYear === '' && $this->localized($copyrightHolders) === '') {
+            return;
+        }
+
+        $permissions = $doc->createElement('permissions');
+        foreach ((array) $copyrightHolders as $locale => $holder) {
+            if (!is_string($holder) || trim($holder) === '') {
+                continue;
+            }
+            $statement = $doc->createElement(
+                'copyright-statement',
+                $this->text('© ' . ($copyrightYear !== '' ? $copyrightYear . ' ' : '') . $holder)
+            );
+            if (is_string($locale)) {
+                $statement->setAttribute('xml:lang', $locale);
+            }
+            $permissions->appendChild($statement);
+        }
+        if ($copyrightYear !== '') {
+            $permissions->appendChild($doc->createElement('copyright-year', $this->text($copyrightYear)));
+        }
+
+        if ($licenseUrl !== '') {
+            foreach (['ru' => 'Материал распространяется на условиях лицензии ', 'en' => 'This article is distributed under the terms of the license '] as $locale => $prefix) {
+                $license = $doc->createElement('license');
+                $license->setAttribute('license-type', 'open-access');
+                $license->setAttribute('xml:lang', $locale);
+                $license->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $licenseUrl);
+                $license->appendChild($doc->createElement('license-p', $this->text($prefix . $licenseUrl)));
+                $permissions->appendChild($license);
+            }
+        }
+
+        if ($permissions->hasChildNodes()) {
+            $articleMeta->appendChild($permissions);
         }
     }
 
@@ -405,6 +490,10 @@ class JatsArticleBuilder
             $value
         );
 
-        return trim($value);
+        return htmlspecialchars(
+            trim($value),
+            ENT_QUOTES | ENT_XML1,
+            'UTF-8'
+        );
     }
 }

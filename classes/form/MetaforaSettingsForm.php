@@ -2,7 +2,6 @@
 
 namespace APP\plugins\importexport\metafora\classes\form;
 
-use APP\template\TemplateManager;
 use PKP\form\Form;
 use PKP\form\validation\FormValidatorCSRF;
 use PKP\form\validation\FormValidatorPost;
@@ -30,8 +29,14 @@ class MetaforaSettingsForm extends Form
         if (!$this->getData('apiUrl')) {
             $this->setData('apiUrl', 'https://metafora.rcsi.science/api/v2');
         }
-        if (!$this->getData('apiTestEndpoint')) {
-            $this->setData('apiTestEndpoint', 'files/status/?file_uid=00000000-0000-0000-0000-000000000000');
+        if ($this->getData('validateXml') === null) {
+            $this->setData('validateXml', true);
+        }
+        if ($this->getData('includePdf') === null) {
+            $this->setData('includePdf', true);
+        }
+        if ($this->getData('includeReferences') === null) {
+            $this->setData('includeReferences', true);
         }
     }
 
@@ -48,33 +53,14 @@ class MetaforaSettingsForm extends Form
         }
     }
 
-    public function fetch($request, $template = null, $display = false)
-    {
-        $templateMgr = TemplateManager::getManager($request);
-
-
-        $formData = [];
-
-        foreach ($this->getFormFields() as $fieldName => $fieldType) {
-            $formData[$fieldName] = $this->getData($fieldName);
-        }
-
-
-        $templateMgr->assign([
-            'formData' => $formData,
-            'includePdf' => $this->getData('includePdf'),
-        ]);
-
-        return parent::fetch($request, $template, $display);
-    }
-
     public function getFormFields(): array
     {
         return [
             'apiUrl' => 'string',
             'apiToken' => 'string',
-            'apiTestEndpoint' => 'string',
+            'validateXml' => 'bool',
             'includePdf' => 'bool',
+            'includeReferences' => 'bool',
         ];
     }
 }

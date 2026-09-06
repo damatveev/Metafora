@@ -89,10 +89,15 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     [
                         'apiUrl' => $apiUrl,
                         'count' => 100,
-                        'getParams' => new \stdClass(),
+                        'getParams' => [
+                            'status' => STATUS_PUBLISHED,
+                            'orderBy' => 'datePublished',
+                            'orderDirection' => 'DESC',
+                        ],
                         'lazyLoad' => true,
                     ]
                 );
+                $submissionsListPanel->includeIssuesFilter = true;
 
                 $submissionsConfig = $submissionsListPanel->getConfig();
                 $submissionsConfig['addUrl'] = '';
@@ -104,9 +109,16 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     ],
                 ]);
 
+                $settingsForm = new MetaforaSettingsForm($this, $context->getId());
+                $settingsForm->initData();
+                $templateMgr->assign('metaforaExportFormats', [
+                    'jats' => __('plugins.importexport.metafora.settings.format.jats'),
+                ]);
+
                 $templateMgr->assign([
                     'pageTitle' => $this->getDisplayName(),
                     'pageComponent' => 'ImportExportPage',
+                    'metaforaSettingsForm' => $settingsForm->fetch($request),
                 ]);
                 $templateMgr->display($this->getTemplateResource('index.tpl'));
                 return;
@@ -114,37 +126,40 @@ class MetaforaExportPlugin extends ImportExportPlugin
             case 'sendSubmissions':
                 $submissionIds = $this->normalizeIds((array) $request->getUserVar('selectedSubmissions'));
                 $documents = [];
+                $validationErrors = [];
                 $error = $submissionIds === []
                     ? __('plugins.importexport.metafora.error.noSubmissionsSelected')
                     : null;
                 if ($error === null) {
-                    try {
-                        $documents = (new ExportManager())->exportJats($submissionIds, $context);
-                    } catch (Throwable $exception) {
-                        $error = $exception->getMessage();
-                    }
+                    [$documents, $validationErrors] = $this->buildDocuments($submissionIds, $context);
                 }
                 $this->sendAndDownloadReport(
                     $documents,
                     $context,
-                    $error
+                    $error,
+                    $validationErrors
                 );
                 return;
 
             case 'sendIssues':
                 $issueIds = $this->normalizeIds((array) $request->getUserVar('selectedIssues'));
                 $documents = [];
+                $validationErrors = [];
                 $error = $issueIds === []
                     ? __('plugins.importexport.metafora.error.noIssuesSelected')
                     : null;
                 if ($error === null) {
                     try {
-                        $manager = new ExportManager();
+                        $articleIds = [];
                         foreach ($issueIds as $issueId) {
-                            foreach ($manager->exportJatsByIssue($issueId, $context) as $submissionId => $xml) {
-                                $documents[$submissionId] = $xml;
+                            foreach ((new IssueArticleManager())->getArticles($issueId, $context) as $article) {
+                                $articleIds[] = (int) $article['submissionId'];
                             }
                         }
+                        [$documents, $validationErrors] = $this->buildDocuments(
+                            array_values(array_unique($articleIds)),
+                            $context
+                        );
                     } catch (Throwable $exception) {
                         $error = $exception->getMessage();
                     }
@@ -152,7 +167,8 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $this->sendAndDownloadReport(
                     $documents,
                     $context,
-                    $error
+                    $error,
+                    $validationErrors
                 );
                 return;
 
@@ -164,14 +180,19 @@ class MetaforaExportPlugin extends ImportExportPlugin
     /**
      * Upload generated JATS documents and return a downloadable processing report.
      */
-    private function sendAndDownloadReport(array $documents, Context $context, ?string $initialError = null): void
+    private function sendAndDownloadReport(
+        array $documents,
+        Context $context,
+        ?string $initialError = null,
+        array $initialItems = []
+    ): void
     {
         @set_time_limit(0);
-        $items = [];
+        $items = $initialItems;
 
         if ($initialError !== null) {
             $items[] = ['success' => false, 'message' => $initialError];
-        } else {
+        } elseif ($documents !== []) {
             try {
                 $client = $this->getApiClient($context);
             } catch (Throwable $exception) {
@@ -192,6 +213,9 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     }
 
                     $pdfPath = $includePdf ? $this->getPdfPath((int) $submissionId, $context) : null;
+                    if ($includePdf && $pdfPath === null) {
+                        throw new \RuntimeException(__('plugins.importexport.metafora.error.pdfRequired'));
+                    }
                     $response = $pdfPath
                         ? $client->sendJatsXmlPdf($xmlPath, $pdfPath)
                         : $client->sendJatsXml($xmlPath);
@@ -246,6 +270,30 @@ class MetaforaExportPlugin extends ImportExportPlugin
         $fileManager->deleteByPath($path);
     }
 
+    private function buildDocuments(array $submissionIds, Context $context): array
+    {
+        $documents = [];
+        $errors = [];
+        $manager = $this->getExportManager($context);
+
+        foreach ($submissionIds as $submissionId) {
+            try {
+                foreach ($manager->exportJats([(int) $submissionId], $context) as $id => $xml) {
+                    $documents[$id] = $xml;
+                }
+            } catch (Throwable $exception) {
+                $errors[] = [
+                    'submissionId' => (int) $submissionId,
+                    'success' => false,
+                    'httpStatus' => 0,
+                    'message' => $exception->getMessage(),
+                ];
+            }
+        }
+
+        return [$documents, $errors];
+    }
+
     private function getApiClient(Context $context): MetaforaApiClient
     {
         $apiUrl = trim((string) $this->getSetting($context->getId(), 'apiUrl'));
@@ -256,6 +304,17 @@ class MetaforaExportPlugin extends ImportExportPlugin
         }
 
         return new MetaforaApiClient($apiUrl, $apiToken);
+    }
+
+    private function getExportManager(Context $context): ExportManager
+    {
+        $validateXml = $this->getSetting($context->getId(), 'validateXml');
+        $includeReferences = $this->getSetting($context->getId(), 'includeReferences');
+
+        return new ExportManager(
+            validateXml: $validateXml === null ? true : (bool) $validateXml,
+            includeReferences: $includeReferences === null ? true : (bool) $includeReferences,
+        );
     }
 
     private function getPdfPath(int $submissionId, Context $context): ?string
@@ -528,8 +587,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
             case 'testConnection':
                 try {
-                    $endpoint = trim((string) $this->getSetting($context->getId(), 'apiTestEndpoint'));
-                    $result = $this->getApiClient($context)->testConnection($endpoint);
+                    $result = $this->getApiClient($context)->testConnection();
                     $status = (int) ($result['status'] ?? 0);
                     $ok = $status > 0 && !in_array($status, [401, 403], true);
                     return new JSONMessage($ok, [

@@ -15,6 +15,8 @@ class ExportManager
     public function __construct(
         private readonly OjsPublicationMapper $mapper = new OjsPublicationMapper(),
         private readonly PublicationValidator $validator = new PublicationValidator(),
+        private readonly bool $validateXml = true,
+        private readonly bool $includeReferences = true,
     ) {
     }
 
@@ -136,9 +138,11 @@ class ExportManager
 
         foreach ($publications as $publication) {
 
-            $xml = $builder->build($publication);
+            $xml = $builder->build($publication, $this->includeReferences);
 
-            $validator->validate($xml);
+            if ($this->validateXml) {
+                $validator->validate($xml);
+            }
 
             $result[$publication->submissionId] = $xml;
         }

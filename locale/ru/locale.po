@@ -84,3 +84,6 @@ msgstr "Не выбран ни один выпуск."
 
 msgid "plugins.importexport.metafora.error.noPublishedArticles"
 msgstr "В выбранных объектах нет опубликованных статей для отправки."
+
+msgid "plugins.importexport.metafora.error.pdfRequired"
+msgstr "Для статьи не найден опубликованный PDF-файл. При включённой отправке PDF статья пропущена."

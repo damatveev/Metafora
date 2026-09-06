@@ -255,21 +255,51 @@ class JatsArticleBuilder
             if ($affiliations === []) {
                 $fallback = $this->localized($author['affiliation'] ?? null);
                 if ($fallback !== '') {
-                    $affiliations[] = ['formatted' => $fallback, 'locale' => null];
+                    $affiliations[] = ['organization' => $fallback, 'locale' => null];
                 }
             }
 
             foreach ($affiliations as $affiliation) {
                 $aff = $doc->createElement('aff');
-                $aff->appendChild(
-                    $doc->createElement(
-                        'institution',
-                        $this->text($affiliation['formatted'])
-                    )
-                );
                 if (!empty($affiliation['locale'])) {
                     $aff->setAttribute('xml:lang', (string) $affiliation['locale']);
                 }
+
+                $organization = trim((string) ($affiliation['organization'] ?? ''));
+                if ($organization !== '') {
+                    $aff->appendChild(
+                        $doc->createElement('institution', $this->text($organization))
+                    );
+                }
+
+                $city = trim((string) ($affiliation['city'] ?? ''));
+                $state = trim((string) ($affiliation['state'] ?? ''));
+                $postalCode = trim((string) ($affiliation['postalCode'] ?? ''));
+                if ($city !== '' || $state !== '' || $postalCode !== '') {
+                    $addrLine = $doc->createElement('addr-line');
+                    if ($city !== '') {
+                        $cityNode = $doc->createElement('named-content', $this->text($city));
+                        $cityNode->setAttribute('content-type', 'city');
+                        $addrLine->appendChild($cityNode);
+                    }
+                    if ($state !== '') {
+                        $stateNode = $doc->createElement('named-content', $this->text($state));
+                        $stateNode->setAttribute('content-type', 'state');
+                        $addrLine->appendChild($stateNode);
+                    }
+                    if ($postalCode !== '') {
+                        $addrLine->appendChild(
+                            $doc->createElement('postal-code', $this->text($postalCode))
+                        );
+                    }
+                    $aff->appendChild($addrLine);
+                }
+
+                $country = trim((string) ($affiliation['country'] ?? ''));
+                if ($country !== '') {
+                    $aff->appendChild($doc->createElement('country', $this->text($country)));
+                }
+
                 $contrib->appendChild($aff);
             }
         }

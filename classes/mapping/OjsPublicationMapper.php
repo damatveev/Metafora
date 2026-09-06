@@ -266,7 +266,9 @@ class OjsPublicationMapper
     {
         $organization = trim($value);
         $city = '';
+        $state = '';
         $country = $countryName ?: $countryCode;
+        $postalCode = '';
 
         if (preg_match('/^(.*?)\s*\(([^()]*)\)\s*$/u', $organization, $matches)) {
             $organization = trim($matches[1]);
@@ -278,6 +280,11 @@ class OjsPublicationMapper
             if (count($parts) >= 3) {
                 $country = (string) array_pop($parts);
                 $city = (string) array_pop($parts);
+                $previous = (string) end($parts);
+                if (count($parts) >= 2 && preg_match('/\d{5,6}$/u', $previous)) {
+                    $state = $city;
+                    $city = (string) array_pop($parts);
+                }
                 $organization = implode(', ', $parts);
             } elseif (count($parts) === 2 && $countryCode !== '') {
                 $city = (string) array_pop($parts);
@@ -285,9 +292,17 @@ class OjsPublicationMapper
             }
         }
 
+        $city = preg_replace('/^г\.?\s*/ui', '', trim($city)) ?? trim($city);
+        if (preg_match('/^(.*?)\s+(\d{5,6})$/u', $city, $matches)) {
+            $city = trim($matches[1]);
+            $postalCode = $matches[2];
+        }
+
         return [
             'organization' => $organization,
             'city' => $city,
+            'state' => $state,
+            'postalCode' => $postalCode,
             'country' => $country,
             'formatted' => $organization . ($city !== '' || $country !== ''
                 ? ' (' . implode(', ', array_filter([$city, $country])) . ')'

@@ -49,6 +49,15 @@ msgstr "Science Space XML"
 msgid "plugins.importexport.metafora.export.json"
 msgstr "Export selected publications"
 
+msgid "plugins.importexport.metafora.export.issues"
+msgstr "Export selected issues"
+
+msgid "plugins.importexport.metafora.tab.articles"
+msgstr "Articles"
+
+msgid "plugins.importexport.metafora.tab.issues"
+msgstr "Issues"
+
 msgid "plugins.importexport.metafora.connection.success"
 msgstr "Connection established. HTTP {$status}."
 

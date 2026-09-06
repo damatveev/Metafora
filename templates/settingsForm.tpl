@@ -3,7 +3,7 @@
 		$('#metaforaSettingsForm').pkpHandler('$.pkp.controllers.form.AjaxFormHandler');
 	{rdelim});
 </script>
-<div class="legacyDefaults">
+<div class="semantic-defaults">
 	<form class="pkp_form" id="metaforaSettingsForm" method="post" action="{url router=PKP\core\PKPApplication::ROUTE_COMPONENT op="manage" plugin="MetaforaExportPlugin" category="importexport" verb="save"}">
 		{csrf}
 		{fbvFormArea id="metaforaSettingsFormArea"}

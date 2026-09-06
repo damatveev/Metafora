@@ -22,15 +22,6 @@ class OjsPublicationMapper
     {
         $publication = $submission->getCurrentPublication();
 
-        file_put_contents(
-            '/tmp/metafora-publication-debug.log',
-            print_r([
-                'submissionId' => $submission->getId(),
-                'publication' => $publication,
-                'titleRaw' => $publication ? $publication->getData('title') : null,
-            ], true)
-        );
-
         $issueData = [];
         $issueId = $publication->getData('issueId');
         if ($issueId) {

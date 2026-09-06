@@ -3,9 +3,11 @@
 namespace APP\plugins\importexport\metafora;
 
 use APP\notification\NotificationManager;
+use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\api\MetaforaApiClient;
 use APP\plugins\importexport\metafora\classes\export\ExportManager;
 use APP\template\TemplateManager;
+use PKP\context\Context;
 use PKP\core\JSONMessage;
 use PKP\core\PKPApplication;
 use PKP\file\FileManager;
@@ -104,6 +106,18 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $fileManager->deleteByPath($path);
                 return;
 
+            case 'exportIssues':
+                $issueIds = (array) $request->getUserVar('selectedIssues');
+                $json = $this->exportIssuesJson($issueIds, $context);
+
+                $fileManager = new FileManager();
+                $path = $this->getExportFileName($this->getExportPath(), 'metafora-issues', $context);
+                $path = preg_replace('/\.xml$/', '.json', $path) ?: ($path . '.json');
+                $fileManager->writeFile($path, $json);
+                $fileManager->downloadByPath($path);
+                $fileManager->deleteByPath($path);
+                return;
+
             default:
                 throw new NotFoundHttpException();
         }
@@ -117,7 +131,8 @@ class MetaforaExportPlugin extends ImportExportPlugin
         }
 
         $this->addLocaleData();
-        $form = new MetaforaSettingsForm($this, $context->getId());
+        $formClass = $this->getSettingsFormClassName();
+        $form = new $formClass($this, $context->getId());
 
         switch ($request->getUserVar('verb')) {
             case 'index':
@@ -161,6 +176,30 @@ class MetaforaExportPlugin extends ImportExportPlugin
         }
 
         return parent::manage($args, $request);
+    }
+
+    public function getSettingsFormClassName(): string
+    {
+        return '\APP\plugins\importexport\metafora\MetaforaSettingsForm';
+    }
+
+    public function exportIssuesJson(array $issueIds, Context $context): string
+    {
+        $submissionIds = [];
+        $issueIds = array_map('intval', $issueIds);
+
+        foreach ($issueIds as $issueId) {
+            $sections = Repo::section()->getByIssueId($issueId);
+            $submissionsInSections = Repo::submission()->getInSections($issueId, $context->getId());
+
+            foreach ($sections as $section) {
+                foreach ($submissionsInSections[$section->getId()]['articles'] ?? [] as $submission) {
+                    $submissionIds[] = $submission->getId();
+                }
+            }
+        }
+
+        return (new ExportManager())->exportJson(array_values(array_unique($submissionIds)), $context);
     }
 
     /**

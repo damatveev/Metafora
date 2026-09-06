@@ -4,7 +4,7 @@
 	{rdelim});
 </script>
 <div class="semantic-defaults">
-	<form class="pkp_form" id="metaforaSettingsForm" method="post" action="{url router=PKP\core\PKPApplication::ROUTE_COMPONENT op="manage" plugin="MetaforaExportPlugin" category="importexport" verb="save"}">
+	<form class="pkp_form" id="metaforaSettingsForm" method="post" action="{url router=PKP\core\PKPApplication::ROUTE_COMPONENT component="grid.settings.plugins.settingsPluginGridHandler" op="manage" plugin="MetaforaExportPlugin" category="importexport" verb="save"}">
 		{csrf}
 		<fieldset class="pkpFormField pkpFormField--options">
 			<legend>{translate key="plugins.importexport.metafora.settings.connection"}</legend>

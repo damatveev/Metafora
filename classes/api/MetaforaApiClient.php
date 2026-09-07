@@ -156,7 +156,7 @@ class MetaforaApiClient
                     ],
                     [
                         'name' => 'platform',
-                        'contents' => 'OJS',
+                        'contents' => 'metapaper',
                     ],
                 ],
             ]
@@ -203,7 +203,7 @@ class MetaforaApiClient
                     ],
                     [
                         'name' => 'platform',
-                        'contents' => 'OJS',
+                        'contents' => 'metapaper',
                     ],
                 ],
             ]

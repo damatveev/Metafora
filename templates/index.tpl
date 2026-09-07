@@ -1,6 +1,7 @@
 {extends file="layouts/backend.tpl"}
 
 {block name="page"}
+	<link rel="stylesheet" href="{$baseUrl}/plugins/importexport/metafora/styles/admin.css?v=0.3.1" />
 	<h1 class="app__pageHeading">{$pageTitle}</h1>
 
 	<script type="text/javascript">

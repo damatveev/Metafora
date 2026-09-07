@@ -156,7 +156,7 @@ class MetaforaApiClient
                     ],
                     [
                         'name' => 'platform',
-                        'contents' => 'metapaper',
+                        'contents' => 'metafora-publ-iasv-plugin',
                     ],
                 ],
             ]
@@ -203,7 +203,7 @@ class MetaforaApiClient
                     ],
                     [
                         'name' => 'platform',
-                        'contents' => 'metapaper',
+                        'contents' => 'metafora-publ-iasv-plugin',
                     ],
                 ],
             ]

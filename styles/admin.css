@@ -22,10 +22,10 @@
 .metaforaArticlesTable__head,
 .metaforaArticleRow {
     display: grid !important;
-    grid-template-columns: 34px minmax(105px, 0.9fr) minmax(260px, 2.4fr) minmax(180px, 1.4fr) 105px 145px minmax(180px, 1.3fr);
+    grid-template-columns: 30px 65px minmax(0, 2fr) minmax(0, 1.2fr) 92px 105px minmax(0, 1.1fr);
     align-items: center;
     gap: 12px;
-    min-width: 1040px;
+    min-width: 760px;
     box-sizing: border-box;
 }
 

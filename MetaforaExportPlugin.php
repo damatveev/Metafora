@@ -110,6 +110,12 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $submissionsConfig['addUrl'] = '';
                 $submissionsConfig['filters'] = array_slice($submissionsConfig['filters'], 1);
                 $submissionsConfig['metaforaStatuses'] = $this->getSubmissionStatuses($context);
+                $submissionsConfig['metaforaLabels'] = [
+                    'notSent' => __('plugins.importexport.metafora.table.notSent'),
+                    'sent' => __('plugins.importexport.metafora.table.sent'),
+                    'sending' => __('plugins.importexport.metafora.table.sending'),
+                    'failed' => __('plugins.importexport.metafora.table.failed'),
+                ];
 
                 $templateMgr->setState([
                     'components' => [

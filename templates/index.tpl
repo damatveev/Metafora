@@ -56,9 +56,8 @@
 							<span>{translate key="plugins.importexport.metafora.table.status"}</span>
 							<span>{translate key="plugins.importexport.metafora.table.error"}</span>
 						</div>
-					</div>
-					<submissions-list-panel v-bind="components.submissions" @set="set">
-						<template #item="{ldelim}item{rdelim}">
+						<submissions-list-panel v-bind="components.submissions" @set="set">
+							<template #item="{ldelim}item{rdelim}">
 							<div class="metaforaArticleRow" role="row" :data-metafora-status="components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaStatuses[item.id].status : 'not_sent'">
 								<div>
 									<input
@@ -70,12 +69,12 @@
 								</div>
 								<div class="metaforaArticleRow__muted">{{ item.issue && (item.issue.identification || item.issue.title) || '—' }}</div>
 								<div v-strip-unsafe-html="localize(item.publications.find(p => p.id == item.currentPublicationId).fullTitle, item.publications.find(p => p.id == item.currentPublicationId).locale)"></div>
-								<div>{{ item.authors && item.authors.map(a => a.fullName || ((a.givenName || '') + ' ' + (a.familyName || '')).trim()).filter(Boolean).join(', ') || '—' }}</div>
+								<div>{{ item.authorsStringShort || item.authorsString || (item.authors && item.authors.map(a => a.fullName || ((a.givenName || '') + ' ' + (a.familyName || '')).trim()).filter(Boolean).join(', ')) || '—' }}</div>
 								<div class="metaforaArticleRow__action">
 									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
 								</div>
 								<div class="metaforaStatus" :class="'metaforaStatus--' + (components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaStatuses[item.id].status : 'not_sent')">
-					{{ !components.submissions.metaforaStatuses[item.id] ? t('plugins.importexport.metafora.table.notSent') : components.submissions.metaforaStatuses[item.id].status === 'success' ? t('plugins.importexport.metafora.table.sent') : components.submissions.metaforaStatuses[item.id].status === 'sending' ? t('plugins.importexport.metafora.table.sending') : t('plugins.importexport.metafora.table.failed') }}
+									{{ !components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaLabels.notSent : components.submissions.metaforaStatuses[item.id].status === 'success' ? components.submissions.metaforaLabels.sent : components.submissions.metaforaStatuses[item.id].status === 'sending' ? components.submissions.metaforaLabels.sending : components.submissions.metaforaLabels.failed }}
 								</div>
 								<div class="metaforaArticleRow__muted">
 									<details v-if="components.submissions.metaforaStatuses[item.id] && components.submissions.metaforaStatuses[item.id].status === 'failed'" class="metaforaErrorDetails">
@@ -88,8 +87,9 @@
 									<span v-else>—</span>
 								</div>
 							</div>
-						</template>
-					</submissions-list-panel>
+							</template>
+						</submissions-list-panel>
+					</div>
 
 					{fbvFormSection}
 						<pkp-button :disabled="!components.submissions.itemsMax" @click="toggleSelectAll">

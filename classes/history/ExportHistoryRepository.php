@@ -2,8 +2,9 @@
 
 namespace APP\plugins\importexport\metafora\classes\history;
 
-use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ExportHistoryRepository
 {
@@ -11,12 +12,11 @@ class ExportHistoryRepository
 
     public function ensureTable(): void
     {
-        $schema = Capsule::schema();
-        if ($schema->hasTable(self::TABLE)) {
+        if (Schema::hasTable(self::TABLE)) {
             return;
         }
 
-        $schema->create(self::TABLE, function (Blueprint $table): void {
+        Schema::create(self::TABLE, function (Blueprint $table): void {
             $table->bigIncrements('id');
             $table->bigInteger('article_id');
             $table->bigInteger('journal_id');
@@ -37,7 +37,7 @@ class ExportHistoryRepository
     {
         $now = gmdate('Y-m-d H:i:s');
 
-        return (int) Capsule::table(self::TABLE)->insertGetId([
+        return (int) DB::table(self::TABLE)->insertGetId([
             'article_id' => $articleId,
             'journal_id' => $journalId,
             'export_type' => $exportType,
@@ -53,7 +53,7 @@ class ExportHistoryRepository
 
     public function finish(int $historyId, bool $success, int $responseCode, mixed $response, ?string $error = null): void
     {
-        Capsule::table(self::TABLE)->where('id', $historyId)->update([
+        DB::table(self::TABLE)->where('id', $historyId)->update([
             'status' => $success ? 'success' : 'failed',
             'error_message' => $success ? null : ($error ?: $this->responseMessage($response)),
             'response_code' => $responseCode ?: null,
@@ -77,7 +77,7 @@ class ExportHistoryRepository
 
     public function getLatestForJournal(int $journalId): array
     {
-        $rows = Capsule::table(self::TABLE)
+        $rows = DB::table(self::TABLE)
             ->whereIn('id', function ($query) use ($journalId): void {
                 $query->from(self::TABLE)
                     ->selectRaw('MAX(id)')
@@ -110,7 +110,7 @@ class ExportHistoryRepository
 
     public function importLegacy(int $journalId, array $items): void
     {
-        if (Capsule::table(self::TABLE)->where('journal_id', $journalId)->exists()) {
+        if (DB::table(self::TABLE)->where('journal_id', $journalId)->exists()) {
             return;
         }
 

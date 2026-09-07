@@ -27,6 +27,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
         if ($success) {
             $this->addLocaleData();
+            $this->addStyleSheet('metaforaAdmin', 'styles/admin.css');
         }
 
         return $success;

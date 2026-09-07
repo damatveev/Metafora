@@ -23,46 +23,6 @@
 		</div>
 
 		<div id="articles-tab">
-			<style>
-				.metaforaArticlesTable__head,
-				.metaforaArticleRow {
-					display: grid;
-					grid-template-columns: 34px minmax(130px, 1.1fr) minmax(260px, 2.4fr) minmax(180px, 1.5fr) 105px 120px minmax(160px, 1.3fr);
-					align-items: start;
-					gap: 10px;
-				}
-				.metaforaArticlesTable__head {
-					padding: 7px 10px;
-					background: #6268e8;
-					color: #fff;
-					font-size: 11px;
-					font-weight: 600;
-					text-transform: uppercase;
-				}
-				.metaforaArticleRow {
-					padding: 10px;
-					border: 1px solid #ddd;
-					border-top: 0;
-					background: #f5f5f5;
-					font-size: 13px;
-				}
-				.metaforaArticleRow:nth-child(odd) { background: #fff; }
-				.metaforaArticleRow__muted { color: #777; }
-				.metaforaArticleRow__action a { white-space: nowrap; }
-				.metaforaStatus { font-weight: 600; }
-				.metaforaStatus--success { color: #2e7d32; }
-				.metaforaStatus--failed { color: #c62828; }
-				.metaforaStatus--sending { color: #1565c0; }
-				.metaforaStatus--not_sent { color: #777; }
-				.metaforaErrorDetails summary { cursor: pointer; color: #c62828; }
-				.metaforaErrorDetails pre { max-width: 420px; overflow: auto; white-space: pre-wrap; }
-				.metaforaStatusFilter { margin: 0 0 10px; }
-				@media (max-width: 900px) {
-					.metaforaArticlesTable { overflow-x: auto; }
-					.metaforaArticlesTable__head,
-					.metaforaArticleRow { min-width: 980px; }
-				}
-			</style>
 			<script type="text/javascript">
 				$(function() {ldelim}
 					$('#metaforaArticlesForm').pkpHandler('$.pkp.controllers.form.FormHandler');
@@ -114,7 +74,7 @@
 									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
 								</div>
 								<div class="metaforaStatus" :class="'metaforaStatus--' + (components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaStatuses[item.id].status : 'not_sent')">
-									{{ !components.submissions.metaforaStatuses[item.id] ? '⚪ ' + t('plugins.importexport.metafora.table.notSent') : components.submissions.metaforaStatuses[item.id].status === 'success' ? '🟢 ' + t('plugins.importexport.metafora.table.sent') : components.submissions.metaforaStatuses[item.id].status === 'sending' ? '🔵 ' + t('plugins.importexport.metafora.table.sending') : '🔴 ' + t('plugins.importexport.metafora.table.failed') }}
+					{{ !components.submissions.metaforaStatuses[item.id] ? t('plugins.importexport.metafora.table.notSent') : components.submissions.metaforaStatuses[item.id].status === 'success' ? t('plugins.importexport.metafora.table.sent') : components.submissions.metaforaStatuses[item.id].status === 'sending' ? t('plugins.importexport.metafora.table.sending') : t('plugins.importexport.metafora.table.failed') }}
 								</div>
 								<div class="metaforaArticleRow__muted">
 									<details v-if="components.submissions.metaforaStatuses[item.id] && components.submissions.metaforaStatuses[item.id].status === 'failed'" class="metaforaErrorDetails">

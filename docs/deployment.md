@@ -25,9 +25,15 @@ This directory is intended for deployment to:
 9. Verify title, authors, DOI, issue, ISSN, references and file metadata in the generated package.
 10. Do not enable production API submission until the official Metafora endpoint contract and XML schema mapping have been verified.
 
+## Export history upgrade
+
+Version 0.3.1 creates the prefixed `metafora_export_history` table when the export page is first opened. Existing per-journal `exportHistory` plugin settings are imported automatically when the journal has no table records yet.
+
+The database user configured by OJS must have permission to create tables. Back up both the database and `plugins/importexport/metafora/` before upgrading an existing installation.
+
 ## Rollback
 
-If the plugin causes an OJS error, remove or rename `plugins/importexport/metafora/` and restore the previous plugin directory from backup. The current plugin does not require a custom database table.
+If the plugin causes an OJS error, restore both the previous `plugins/importexport/metafora/` directory and the database backup. Do not drop the history table during an ordinary code rollback; keeping it preserves export audit data.
 
 ## XML formats
 

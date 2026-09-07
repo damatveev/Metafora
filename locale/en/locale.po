@@ -111,3 +111,30 @@ msgstr "Not sent"
 
 msgid "plugins.importexport.metafora.table.sent"
 msgstr "Sent"
+
+msgid "plugins.importexport.metafora.table.sending"
+msgstr "Sending"
+
+msgid "plugins.importexport.metafora.table.failed"
+msgstr "Failed"
+
+msgid "plugins.importexport.metafora.filter.label"
+msgstr "Status"
+
+msgid "plugins.importexport.metafora.filter.all"
+msgstr "All"
+
+msgid "plugins.importexport.metafora.filter.success"
+msgstr "Sent"
+
+msgid "plugins.importexport.metafora.filter.failed"
+msgstr "Errors"
+
+msgid "plugins.importexport.metafora.filter.notSent"
+msgstr "Not sent"
+
+msgid "plugins.importexport.metafora.details.date"
+msgstr "Date"
+
+msgid "plugins.importexport.metafora.details.type"
+msgstr "Export type"

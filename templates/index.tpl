@@ -49,6 +49,14 @@
 				.metaforaArticleRow:nth-child(odd) { background: #fff; }
 				.metaforaArticleRow__muted { color: #777; }
 				.metaforaArticleRow__action a { white-space: nowrap; }
+				.metaforaStatus { font-weight: 600; }
+				.metaforaStatus--success { color: #2e7d32; }
+				.metaforaStatus--failed { color: #c62828; }
+				.metaforaStatus--sending { color: #1565c0; }
+				.metaforaStatus--not_sent { color: #777; }
+				.metaforaErrorDetails summary { cursor: pointer; color: #c62828; }
+				.metaforaErrorDetails pre { max-width: 420px; overflow: auto; white-space: pre-wrap; }
+				.metaforaStatusFilter { margin: 0 0 10px; }
 				@media (max-width: 900px) {
 					.metaforaArticlesTable { overflow-x: auto; }
 					.metaforaArticlesTable__head,
@@ -58,11 +66,25 @@
 			<script type="text/javascript">
 				$(function() {ldelim}
 					$('#metaforaArticlesForm').pkpHandler('$.pkp.controllers.form.FormHandler');
+					window.metaforaFilterRows = function(value) {ldelim}
+						$('.metaforaArticleRow').each(function() {ldelim}
+							$(this).toggle(value === 'all' || $(this).attr('data-metafora-status') === value);
+						{rdelim});
+					{rdelim};
 				{rdelim});
 			</script>
 			<form id="metaforaArticlesForm" class="pkp_form" action="{plugin_url path="sendSubmissions"}" method="post">
 				{csrf}
 				{fbvFormArea id="metaforaArticlesFormArea"}
+					<div class="metaforaStatusFilter">
+						<label for="metaforaStatusFilter">{translate key="plugins.importexport.metafora.filter.label"}</label>
+						<select id="metaforaStatusFilter" onchange="window.metaforaFilterRows(this.value)">
+							<option value="all">{translate key="plugins.importexport.metafora.filter.all"}</option>
+							<option value="success">{translate key="plugins.importexport.metafora.filter.success"}</option>
+							<option value="failed">{translate key="plugins.importexport.metafora.filter.failed"}</option>
+							<option value="not_sent">{translate key="plugins.importexport.metafora.filter.notSent"}</option>
+						</select>
+					</div>
 					<div class="metaforaArticlesTable" role="table" aria-label="{translate key="plugins.importexport.metafora.tab.articles"}">
 						<div class="metaforaArticlesTable__head" role="row">
 							<span></span>
@@ -76,7 +98,7 @@
 					</div>
 					<submissions-list-panel v-bind="components.submissions" @set="set">
 						<template #item="{ldelim}item{rdelim}">
-							<div class="metaforaArticleRow" role="row">
+							<div class="metaforaArticleRow" role="row" :data-metafora-status="components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaStatuses[item.id].status : 'not_sent'">
 								<div>
 									<input
 										type="checkbox"
@@ -91,8 +113,19 @@
 								<div class="metaforaArticleRow__action">
 									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
 								</div>
-								<div>{{ components.submissions.metaforaStatuses[item.id] && components.submissions.metaforaStatuses[item.id].success ? t('plugins.importexport.metafora.table.sent') : t('plugins.importexport.metafora.table.notSent') }}</div>
-								<div class="metaforaArticleRow__muted">{{ components.submissions.metaforaStatuses[item.id] && !components.submissions.metaforaStatuses[item.id].success ? (components.submissions.metaforaStatuses[item.id].message || (components.submissions.metaforaStatuses[item.id].response && components.submissions.metaforaStatuses[item.id].response.message) || '—') : '—' }}</div>
+								<div class="metaforaStatus" :class="'metaforaStatus--' + (components.submissions.metaforaStatuses[item.id] ? components.submissions.metaforaStatuses[item.id].status : 'not_sent')">
+									{{ !components.submissions.metaforaStatuses[item.id] ? '⚪ ' + t('plugins.importexport.metafora.table.notSent') : components.submissions.metaforaStatuses[item.id].status === 'success' ? '🟢 ' + t('plugins.importexport.metafora.table.sent') : components.submissions.metaforaStatuses[item.id].status === 'sending' ? '🔵 ' + t('plugins.importexport.metafora.table.sending') : '🔴 ' + t('plugins.importexport.metafora.table.failed') }}
+								</div>
+								<div class="metaforaArticleRow__muted">
+									<details v-if="components.submissions.metaforaStatuses[item.id] && components.submissions.metaforaStatuses[item.id].status === 'failed'" class="metaforaErrorDetails">
+										<summary>{{ components.submissions.metaforaStatuses[item.id].message || t('plugins.importexport.metafora.table.failed') }}</summary>
+										<div>{{ t('plugins.importexport.metafora.details.date') }}: {{ components.submissions.metaforaStatuses[item.id].updatedAt || '—' }}</div>
+										<div>{{ t('plugins.importexport.metafora.details.type') }}: {{ components.submissions.metaforaStatuses[item.id].exportType || '—' }}</div>
+										<div>HTTP: {{ components.submissions.metaforaStatuses[item.id].httpStatus || '—' }}</div>
+										<pre>{{ typeof components.submissions.metaforaStatuses[item.id].response === 'string' ? components.submissions.metaforaStatuses[item.id].response : JSON.stringify(components.submissions.metaforaStatuses[item.id].response, null, 2) }}</pre>
+									</details>
+									<span v-else>—</span>
+								</div>
 							</div>
 						</template>
 					</submissions-list-panel>

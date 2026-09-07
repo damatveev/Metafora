@@ -8,6 +8,7 @@ use APP\plugins\importexport\metafora\classes\api\MetaforaApiClient;
 use APP\plugins\importexport\metafora\classes\export\ExportManager;
 use APP\plugins\importexport\metafora\classes\export\IssueArticleManager;
 use APP\plugins\importexport\metafora\classes\form\MetaforaSettingsForm;
+use APP\plugins\importexport\metafora\classes\history\ExportHistoryRepository;
 use APP\template\TemplateManager;
 use PKP\config\Config;
 use PKP\context\Context;
@@ -71,6 +72,12 @@ class MetaforaExportPlugin extends ImportExportPlugin
         $context = $request->getContext();
         if (!$context) {
             throw new NotFoundHttpException();
+        }
+        $history = $this->history();
+        $history->ensureTable();
+        $legacyHistory = json_decode((string) $this->getSetting($context->getId(), 'exportHistory'), true);
+        if (is_array($legacyHistory) && $legacyHistory !== []) {
+            $history->importLegacy($context->getId(), $legacyHistory);
         }
 
         switch (array_shift($args) ?: 'index') {
@@ -192,6 +199,21 @@ class MetaforaExportPlugin extends ImportExportPlugin
     {
         @set_time_limit(0);
         $items = $initialItems;
+        $history = $this->history();
+        $includePdf = (bool) $this->getSetting($context->getId(), 'includePdf');
+        $exportType = $includePdf ? 'xml_pdf' : 'xml';
+
+        foreach ($initialItems as $item) {
+            $submissionId = (int) ($item['submissionId'] ?? 0);
+            if ($submissionId > 0) {
+                $history->recordFailure(
+                    $submissionId,
+                    $context->getId(),
+                    $exportType,
+                    (string) ($item['message'] ?? 'Export validation failed')
+                );
+            }
+        }
 
         if ($initialError !== null) {
             $items[] = ['success' => false, 'message' => $initialError];
@@ -199,15 +221,45 @@ class MetaforaExportPlugin extends ImportExportPlugin
             try {
                 $client = $this->getApiClient($context);
             } catch (Throwable $exception) {
-                $items[] = ['success' => false, 'message' => $exception->getMessage()];
+                foreach ($documents as $submissionId => $xml) {
+                    $item = [
+                        'submissionId' => (int) $submissionId,
+                        'success' => false,
+                        'httpStatus' => 0,
+                        'message' => $exception->getMessage(),
+                    ];
+                    $items[] = $item;
+                    $history->recordFailure(
+                        (int) $submissionId,
+                        $context->getId(),
+                        $exportType,
+                        $exception->getMessage(),
+                        0,
+                        null,
+                        $xml
+                    );
+                }
                 $client = null;
             }
-            $includePdf = (bool) $this->getSetting($context->getId(), 'includePdf');
 
             foreach ($client ? $documents : [] as $submissionId => $xml) {
+                $historyId = $history->start(
+                    (int) $submissionId,
+                    $context->getId(),
+                    $exportType,
+                    $xml
+                );
                 $xmlPath = tempnam($this->getExportPath(), 'metafora-jats-');
                 if ($xmlPath === false) {
-                    throw new \RuntimeException('Unable to create a temporary JATS file.');
+                    $message = 'Unable to create a temporary JATS file.';
+                    $history->finish($historyId, false, 0, null, $message);
+                    $items[] = [
+                        'submissionId' => (int) $submissionId,
+                        'success' => false,
+                        'httpStatus' => 0,
+                        'message' => $message,
+                    ];
+                    continue;
                 }
 
                 try {
@@ -223,15 +275,25 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         ? $client->sendJatsXmlPdf($xmlPath, $pdfPath)
                         : $client->sendJatsXml($xmlPath);
                     $status = (int) ($response['status'] ?? 0);
+                    $responsePayload = $response['json'] ?? $response['body'] ?? null;
+                    $success = $status >= 200 && $status < 300;
+
+                    $history->finish(
+                        $historyId,
+                        $success,
+                        $status,
+                        $responsePayload
+                    );
 
                     $items[] = [
                         'submissionId' => (int) $submissionId,
-                        'success' => $status >= 200 && $status < 300,
+                        'success' => $success,
                         'httpStatus' => $status,
                         'pdfIncluded' => $pdfPath !== null,
-                        'response' => $response['json'] ?? $response['body'] ?? null,
+                        'response' => $responsePayload,
                     ];
                 } catch (Throwable $exception) {
+                    $history->finish($historyId, false, 0, null, $exception->getMessage());
                     $items[] = [
                         'submissionId' => (int) $submissionId,
                         'success' => false,
@@ -271,7 +333,6 @@ class MetaforaExportPlugin extends ImportExportPlugin
         $fileManager->writeFile($path, $report);
         $fileManager->downloadByPath($path);
         $fileManager->deleteByPath($path);
-        $this->saveSubmissionStatuses($context, $items);
     }
 
     private function buildDocuments(array $submissionIds, Context $context): array
@@ -370,39 +431,12 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
     private function getSubmissionStatuses(Context $context): array
     {
-        $raw = (string) $this->getSetting($context->getId(), 'exportHistory');
-        $history = json_decode($raw, true);
-        if (!is_array($history)) {
-            return [];
-        }
-        $statuses = [];
-        foreach ($history as $item) {
-            $id = (int) ($item['submissionId'] ?? 0);
-            if ($id > 0) {
-                $statuses[$id] = $item;
-            }
-        }
-        return $statuses;
+        return $this->history()->getLatestForJournal($context->getId());
     }
 
-    private function saveSubmissionStatuses(Context $context, array $items): void
+    private function history(): ExportHistoryRepository
     {
-        $history = $this->getSubmissionStatuses($context);
-        foreach ($items as $item) {
-            $id = (int) ($item['submissionId'] ?? 0);
-            if ($id <= 0) {
-                continue;
-            }
-            $item['updatedAt'] = gmdate(DATE_ATOM);
-            $history[$id] = $item;
-        }
-        $history = array_slice($history, -500, null, true);
-        $this->updateSetting(
-            $context->getId(),
-            'exportHistory',
-            json_encode(array_values($history), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'string'
-        );
+        return new ExportHistoryRepository();
     }
 
 

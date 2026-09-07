@@ -111,3 +111,30 @@ msgstr "Не отправлялась"
 
 msgid "plugins.importexport.metafora.table.sent"
 msgstr "Отправлена"
+
+msgid "plugins.importexport.metafora.table.sending"
+msgstr "Отправляется"
+
+msgid "plugins.importexport.metafora.table.failed"
+msgstr "Ошибка"
+
+msgid "plugins.importexport.metafora.filter.label"
+msgstr "Статус"
+
+msgid "plugins.importexport.metafora.filter.all"
+msgstr "Все"
+
+msgid "plugins.importexport.metafora.filter.success"
+msgstr "Отправленные"
+
+msgid "plugins.importexport.metafora.filter.failed"
+msgstr "Ошибки"
+
+msgid "plugins.importexport.metafora.filter.notSent"
+msgstr "Не отправлялись"
+
+msgid "plugins.importexport.metafora.details.date"
+msgstr "Дата"
+
+msgid "plugins.importexport.metafora.details.type"
+msgstr "Тип экспорта"

@@ -87,3 +87,24 @@ msgstr "The selected objects contain no published articles to send."
 
 msgid "plugins.importexport.metafora.error.pdfRequired"
 msgstr "No published PDF file was found. The article was skipped because PDF upload is enabled."
+
+msgid "plugins.importexport.metafora.table.issue"
+msgstr "Issue"
+
+msgid "plugins.importexport.metafora.table.title"
+msgstr "Title"
+
+msgid "plugins.importexport.metafora.table.authors"
+msgstr "Authors"
+
+msgid "plugins.importexport.metafora.table.action"
+msgstr "Action"
+
+msgid "plugins.importexport.metafora.table.status"
+msgstr "Status"
+
+msgid "plugins.importexport.metafora.table.error"
+msgstr "Error"
+
+msgid "plugins.importexport.metafora.table.notSent"
+msgstr "Not sent"

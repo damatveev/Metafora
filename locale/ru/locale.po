@@ -87,3 +87,24 @@ msgstr "В выбранных объектах нет опубликованны
 
 msgid "plugins.importexport.metafora.error.pdfRequired"
 msgstr "Для статьи не найден опубликованный PDF-файл. При включённой отправке PDF статья пропущена."
+
+msgid "plugins.importexport.metafora.table.issue"
+msgstr "Выпуск"
+
+msgid "plugins.importexport.metafora.table.title"
+msgstr "Название"
+
+msgid "plugins.importexport.metafora.table.authors"
+msgstr "Авторы"
+
+msgid "plugins.importexport.metafora.table.action"
+msgstr "Действие"
+
+msgid "plugins.importexport.metafora.table.status"
+msgstr "Статус"
+
+msgid "plugins.importexport.metafora.table.error"
+msgstr "Ошибка"
+
+msgid "plugins.importexport.metafora.table.notSent"
+msgstr "Не отправлялась"

@@ -23,6 +23,38 @@
 		</div>
 
 		<div id="articles-tab">
+			<style>
+				.metaforaArticlesTable__head,
+				.metaforaArticleRow {
+					display: grid;
+					grid-template-columns: 34px minmax(130px, 1.1fr) minmax(260px, 2.4fr) minmax(180px, 1.5fr) 105px 120px minmax(160px, 1.3fr);
+					align-items: start;
+					gap: 10px;
+				}
+				.metaforaArticlesTable__head {
+					padding: 7px 10px;
+					background: #6268e8;
+					color: #fff;
+					font-size: 11px;
+					font-weight: 600;
+					text-transform: uppercase;
+				}
+				.metaforaArticleRow {
+					padding: 10px;
+					border: 1px solid #ddd;
+					border-top: 0;
+					background: #f5f5f5;
+					font-size: 13px;
+				}
+				.metaforaArticleRow:nth-child(odd) { background: #fff; }
+				.metaforaArticleRow__muted { color: #777; }
+				.metaforaArticleRow__action a { white-space: nowrap; }
+				@media (max-width: 900px) {
+					.metaforaArticlesTable { overflow-x: auto; }
+					.metaforaArticlesTable__head,
+					.metaforaArticleRow { min-width: 980px; }
+				}
+			</style>
 			<script type="text/javascript">
 				$(function() {ldelim}
 					$('#metaforaArticlesForm').pkpHandler('$.pkp.controllers.form.FormHandler');
@@ -31,27 +63,36 @@
 			<form id="metaforaArticlesForm" class="pkp_form" action="{plugin_url path="sendSubmissions"}" method="post">
 				{csrf}
 				{fbvFormArea id="metaforaArticlesFormArea"}
+					<div class="metaforaArticlesTable" role="table" aria-label="{translate key="plugins.importexport.metafora.tab.articles"}">
+						<div class="metaforaArticlesTable__head" role="row">
+							<span></span>
+							<span>{translate key="plugins.importexport.metafora.table.issue"}</span>
+							<span>{translate key="plugins.importexport.metafora.table.title"}</span>
+							<span>{translate key="plugins.importexport.metafora.table.authors"}</span>
+							<span>{translate key="plugins.importexport.metafora.table.action"}</span>
+							<span>{translate key="plugins.importexport.metafora.table.status"}</span>
+							<span>{translate key="plugins.importexport.metafora.table.error"}</span>
+						</div>
+					</div>
 					<submissions-list-panel v-bind="components.submissions" @set="set">
 						<template #item="{ldelim}item{rdelim}">
-							<div class="listPanel__itemSummary">
-								<label>
+							<div class="metaforaArticleRow" role="row">
+								<div>
 									<input
 										type="checkbox"
 										name="selectedSubmissions[]"
 										:value="item.id"
 										v-model="selectedSubmissions"
 									/>
-									<span
-										class="listPanel__itemSubTitle"
-										v-strip-unsafe-html="localize(
-											item.publications.find(p => p.id == item.currentPublicationId).fullTitle,
-											item.publications.find(p => p.id == item.currentPublicationId).locale
-										)"
-									></span>
-								</label>
-								<pkp-button element="a" :href="item.urlWorkflow" style="margin-left: auto;">
-									{{ t('common.view') }}
-								</pkp-button>
+								</div>
+								<div class="metaforaArticleRow__muted">{{ item.issue && (item.issue.identification || item.issue.title) || '—' }}</div>
+								<div v-strip-unsafe-html="localize(item.publications.find(p => p.id == item.currentPublicationId).fullTitle, item.publications.find(p => p.id == item.currentPublicationId).locale)"></div>
+								<div>{{ item.authors && item.authors.map(a => a.fullName || ((a.givenName || '') + ' ' + (a.familyName || '')).trim()).filter(Boolean).join(', ') || '—' }}</div>
+								<div class="metaforaArticleRow__action">
+									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
+								</div>
+								<div class="metaforaArticleRow__muted">{{ t('plugins.importexport.metafora.table.notSent') }}</div>
+								<div class="metaforaArticleRow__muted">—</div>
 							</div>
 						</template>
 					</submissions-list-panel>

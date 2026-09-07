@@ -112,6 +112,9 @@ msgstr "Не отправлялась"
 msgid "plugins.importexport.metafora.table.sent"
 msgstr "Отправлена"
 
+msgid "plugins.importexport.metafora.table.articles"
+msgstr "Статей"
+
 msgid "plugins.importexport.metafora.table.sending"
 msgstr "Отправляется"
 

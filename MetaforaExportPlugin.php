@@ -110,6 +110,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $submissionsConfig['addUrl'] = '';
                 $submissionsConfig['filters'] = array_slice($submissionsConfig['filters'], 1);
                 $submissionsConfig['metaforaStatuses'] = $this->getSubmissionStatuses($context);
+                $submissionsConfig['metaforaMetadata'] = $this->getSubmissionMetadata($context);
                 $submissionsConfig['metaforaLabels'] = [
                     'notSent' => __('plugins.importexport.metafora.table.notSent'),
                     'sent' => __('plugins.importexport.metafora.table.sent'),
@@ -135,6 +136,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     'validateXml' => (bool) $settingsForm->getData('validateXml'),
                     'includePdf' => (bool) $settingsForm->getData('includePdf'),
                     'includeReferences' => (bool) $settingsForm->getData('includeReferences'),
+                    'metaforaIssues' => $this->getIssuesTableData($context, $request),
                 ]);
                 $templateMgr->display($this->getTemplateResource('index.tpl'));
                 return;
@@ -443,6 +445,101 @@ class MetaforaExportPlugin extends ImportExportPlugin
     private function history(): ExportHistoryRepository
     {
         return new ExportHistoryRepository();
+    }
+
+    private function getSubmissionMetadata(Context $context): array
+    {
+        $result = [];
+        $submissions = Repo::submission()->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->filterByStatus([STATUS_PUBLISHED])
+            ->getMany();
+        foreach ($submissions as $submission) {
+            $publication = $submission->getCurrentPublication();
+            if (!$publication) {
+                continue;
+            }
+            $issue = null;
+            $issueId = (int) $publication->getData('issueId');
+            if ($issueId) {
+                $issueObject = Repo::issue()->get($issueId);
+                if ($issueObject) {
+                    $issue = trim(implode(' ', array_filter([
+                        $issueObject->getData('year'),
+                        $issueObject->getData('volume') ? 'Т. ' . $issueObject->getData('volume') : null,
+                        $issueObject->getData('number') ? '№ ' . $issueObject->getData('number') : null,
+                    ])));
+                }
+            }
+            $authors = [];
+            $authorCollection = $publication->getData('authors');
+            foreach ($authorCollection ?: [] as $author) {
+                $name = $this->localizedValue($author->getData('preferredPublicName'));
+                if ($name === '') {
+                    $name = trim($this->localizedValue($author->getData('givenName')) . ' ' . $this->localizedValue($author->getData('familyName')));
+                }
+                if ($name !== '') {
+                    $authors[] = $name;
+                }
+            }
+            $result[$submission->getId()] = ['issue' => $issue ?: '—', 'authors' => $authors ? implode(', ', $authors) : '—'];
+        }
+        return $result;
+    }
+
+    private function getIssuesTableData(Context $context, $request): array
+    {
+        $result = [];
+        $statuses = $this->getSubmissionStatuses($context);
+        foreach (Repo::issue()->getCollector()->filterByContextIds([$context->getId()])->getMany() as $issue) {
+            $articles = (new IssueArticleManager())->getArticles($issue->getId(), $context);
+            $articleStatuses = array_values(array_filter(array_map(
+                static fn (array $article) => $statuses[$article['submissionId']] ?? null,
+                $articles
+            )));
+            $status = 'not_sent';
+            if (array_filter($articleStatuses, static fn (array $item) => $item['status'] === 'failed')) {
+                $status = 'failed';
+            } elseif (array_filter($articleStatuses, static fn (array $item) => $item['status'] === 'sending')) {
+                $status = 'sending';
+            } elseif ($articles && count($articleStatuses) === count($articles)) {
+                $status = 'success';
+            }
+            $error = '—';
+            foreach ($articleStatuses as $item) {
+                if ($item['status'] === 'failed' && !empty($item['message'])) {
+                    $error = $item['message'];
+                    break;
+                }
+            }
+            $label = trim(implode(' ', array_filter([
+                $issue->getData('year'),
+                $issue->getData('volume') ? 'Т. ' . $issue->getData('volume') : null,
+                $issue->getData('number') ? '№ ' . $issue->getData('number') : null,
+            ])));
+            $result[] = [
+                'id' => $issue->getId(), 'label' => $label ?: (string) $issue->getId(),
+                'articleCount' => count($articles), 'status' => $status, 'error' => $error,
+                'statusLabel' => __('plugins.importexport.metafora.table.' . ($status === 'success' ? 'sent' : ($status === 'not_sent' ? 'notSent' : $status))),
+                'url' => $request->getDispatcher()->url($request, PKPApplication::ROUTE_PAGE, $context->getPath(), 'issue', 'view', [$issue->getId()]),
+            ];
+        }
+        return $result;
+    }
+
+    private function localizedValue(mixed $value): string
+    {
+        if (is_string($value)) {
+            return trim($value);
+        }
+        if (is_array($value)) {
+            foreach ($value as $candidate) {
+                if (is_string($candidate) && trim($candidate) !== '') {
+                    return trim($candidate);
+                }
+            }
+        }
+        return '';
     }
 
 

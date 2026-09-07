@@ -112,6 +112,9 @@ msgstr "Not sent"
 msgid "plugins.importexport.metafora.table.sent"
 msgstr "Sent"
 
+msgid "plugins.importexport.metafora.table.articles"
+msgstr "Articles"
+
 msgid "plugins.importexport.metafora.table.sending"
 msgstr "Sending"
 

@@ -20,7 +20,9 @@
 }
 
 .metaforaArticlesTable__head,
-.metaforaArticleRow {
+.metaforaArticleRow,
+.metaforaIssuesTable__head,
+.metaforaIssueRow {
     display: grid !important;
     grid-template-columns: 30px 65px minmax(0, 2fr) minmax(0, 1.2fr) 92px 105px minmax(0, 1.1fr);
     align-items: center;
@@ -28,6 +30,11 @@
     min-width: 760px;
     box-sizing: border-box;
 }
+
+.metaforaIssuesTable { width: 100%; overflow-x: auto; }
+.metaforaIssuesTable__head, .metaforaIssueRow { grid-template-columns: 30px minmax(0, 2fr) 90px 105px 120px minmax(0, 1.5fr); }
+.metaforaIssuesTable__head { padding: 9px 12px; background: #6268e8; color: #fff; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+.metaforaIssueRow { padding: 11px 12px; border: 1px solid #ddd; border-top: 0; background: #fff; font-size: 13px; }
 
 .metaforaArticlesTable__head {
     padding: 9px 12px;

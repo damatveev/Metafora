@@ -67,9 +67,9 @@
 										v-model="selectedSubmissions"
 									/>
 								</div>
-								<div class="metaforaArticleRow__muted">{{ item.issue && (item.issue.identification || item.issue.title) || '—' }}</div>
+								<div class="metaforaArticleRow__muted">{{ components.submissions.metaforaMetadata[item.id] ? components.submissions.metaforaMetadata[item.id].issue : '—' }}</div>
 								<div v-strip-unsafe-html="localize(item.publications.find(p => p.id == item.currentPublicationId).fullTitle, item.publications.find(p => p.id == item.currentPublicationId).locale)"></div>
-								<div>{{ item.authorsStringShort || item.authorsString || (item.authors && item.authors.map(a => a.fullName || ((a.givenName || '') + ' ' + (a.familyName || '')).trim()).filter(Boolean).join(', ')) || '—' }}</div>
+								<div>{{ components.submissions.metaforaMetadata[item.id] ? components.submissions.metaforaMetadata[item.id].authors : '—' }}</div>
 								<div class="metaforaArticleRow__action">
 									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
 								</div>
@@ -117,10 +117,12 @@
 			<form id="metaforaIssuesForm" class="pkp_form" action="{plugin_url path="sendIssues"}" method="post">
 				{csrf}
 				{fbvFormArea id="metaforaIssuesFormArea"}
-					{capture assign=issuesListGridUrl}
-						{url router=PKP\core\PKPApplication::ROUTE_COMPONENT component="grid.issues.ExportableIssuesListGridHandler" op="fetchGrid" escape=false}
-					{/capture}
-					{load_url_in_div id="metaforaIssuesListGridContainer" url=$issuesListGridUrl}
+					<div class="metaforaIssuesTable">
+						<div class="metaforaIssuesTable__head"><span></span><span>{translate key="plugins.importexport.metafora.table.issue"}</span><span>{translate key="plugins.importexport.metafora.table.articles"}</span><span>{translate key="plugins.importexport.metafora.table.action"}</span><span>{translate key="plugins.importexport.metafora.table.status"}</span><span>{translate key="plugins.importexport.metafora.table.error"}</span></div>
+						{foreach from=$metaforaIssues item=issue}
+							<div class="metaforaIssueRow"><div><input type="checkbox" name="selectedIssues[]" value="{$issue.id|escape}" /></div><div>{$issue.label|escape}</div><div>{$issue.articleCount|escape}</div><div><a class="pkp_button" href="{$issue.url|escape}">{translate key="common.view"}</a></div><div class="metaforaStatus metaforaStatus--{$issue.status|escape}">{$issue.statusLabel|escape}</div><div class="metaforaArticleRow__muted">{$issue.error|escape}</div></div>
+						{/foreach}
+					</div>
 					{fbvFormButtons submitText="plugins.importexport.metafora.send.issues" hideCancel="true"}
 				{/fbvFormArea}
 			</form>

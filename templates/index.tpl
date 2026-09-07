@@ -91,8 +91,8 @@
 								<div class="metaforaArticleRow__action">
 									<pkp-button element="a" :href="item.urlWorkflow">{{ t('common.view') }}</pkp-button>
 								</div>
-								<div class="metaforaArticleRow__muted">{{ t('plugins.importexport.metafora.table.notSent') }}</div>
-								<div class="metaforaArticleRow__muted">—</div>
+								<div>{{ components.submissions.metaforaStatuses[item.id] && components.submissions.metaforaStatuses[item.id].success ? t('plugins.importexport.metafora.table.sent') : t('plugins.importexport.metafora.table.notSent') }}</div>
+								<div class="metaforaArticleRow__muted">{{ components.submissions.metaforaStatuses[item.id] && !components.submissions.metaforaStatuses[item.id].success ? (components.submissions.metaforaStatuses[item.id].message || (components.submissions.metaforaStatuses[item.id].response && components.submissions.metaforaStatuses[item.id].response.message) || '—') : '—' }}</div>
 							</div>
 						</template>
 					</submissions-list-panel>

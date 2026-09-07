@@ -102,6 +102,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $submissionsConfig = $submissionsListPanel->getConfig();
                 $submissionsConfig['addUrl'] = '';
                 $submissionsConfig['filters'] = array_slice($submissionsConfig['filters'], 1);
+                $submissionsConfig['metaforaStatuses'] = $this->getSubmissionStatuses($context);
 
                 $templateMgr->setState([
                     'components' => [
@@ -270,6 +271,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
         $fileManager->writeFile($path, $report);
         $fileManager->downloadByPath($path);
         $fileManager->deleteByPath($path);
+        $this->saveSubmissionStatuses($context, $items);
     }
 
     private function buildDocuments(array $submissionIds, Context $context): array
@@ -364,6 +366,43 @@ class MetaforaExportPlugin extends ImportExportPlugin
             array_map('intval', $ids),
             static fn (int $id): bool => $id > 0
         )));
+    }
+
+    private function getSubmissionStatuses(Context $context): array
+    {
+        $raw = (string) $this->getSetting($context->getId(), 'exportHistory');
+        $history = json_decode($raw, true);
+        if (!is_array($history)) {
+            return [];
+        }
+        $statuses = [];
+        foreach ($history as $item) {
+            $id = (int) ($item['submissionId'] ?? 0);
+            if ($id > 0) {
+                $statuses[$id] = $item;
+            }
+        }
+        return $statuses;
+    }
+
+    private function saveSubmissionStatuses(Context $context, array $items): void
+    {
+        $history = $this->getSubmissionStatuses($context);
+        foreach ($items as $item) {
+            $id = (int) ($item['submissionId'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $item['updatedAt'] = gmdate(DATE_ATOM);
+            $history[$id] = $item;
+        }
+        $history = array_slice($history, -500, null, true);
+        $this->updateSetting(
+            $context->getId(),
+            'exportHistory',
+            json_encode(array_values($history), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'string'
+        );
     }
 
 

@@ -108,3 +108,6 @@ msgstr "Ошибка"
 
 msgid "plugins.importexport.metafora.table.notSent"
 msgstr "Не отправлялась"
+
+msgid "plugins.importexport.metafora.table.sent"
+msgstr "Отправлена"

@@ -108,3 +108,6 @@ msgstr "Error"
 
 msgid "plugins.importexport.metafora.table.notSent"
 msgstr "Not sent"
+
+msgid "plugins.importexport.metafora.table.sent"
+msgstr "Sent"

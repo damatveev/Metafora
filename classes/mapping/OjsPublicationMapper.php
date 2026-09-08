@@ -95,7 +95,7 @@ class OjsPublicationMapper
             title: $this->mapLocalizedField($publication, 'title'),
             abstract: $this->mapLocalizedField($publication, 'abstract'),
             authors: $authors,
-            keywords: $this->mapLocalizedField($publication, 'keywords'),
+            keywords: $this->mapKeywords($publication),
             doi: $publication->getDoi(),
             issue: $issueData,
             journal: $journal,
@@ -112,6 +112,25 @@ class OjsPublicationMapper
     private function mapLocalizedField($publication, string $field): array
     {
         return $this->normalizeLocalizedValue($publication->getData($field), $publication->getData('locale'));
+    }
+
+    private function mapKeywords($publication): array
+    {
+        $result = [];
+        foreach ((array) ($publication->getData('keywords') ?? []) as $locale => $items) {
+            $names = [];
+            foreach ((array) $items as $item) {
+                $name = is_array($item) ? ($item['name'] ?? '') : $item;
+                if (is_string($name) && trim($name) !== '') {
+                    $names[] = trim($name);
+                }
+            }
+            if ($names !== []) {
+                $normalizedLocale = $this->contentLocale($names) ?: $this->normalizeLocale((string) $locale);
+                $result[$normalizedLocale] = $names;
+            }
+        }
+        return $result;
     }
 
     private function normalizeLocalizedValue(mixed $value, mixed $fallbackLocale): array

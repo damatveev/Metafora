@@ -49,11 +49,7 @@ class JatsArticleBuilder
         if ($includeReferences && $publication->references !== []) {
             $back = $doc->createElement('back');
             $article->appendChild($back);
-            foreach ($publication->references as $referenceLocale => $references) {
-                if (is_array($references)) {
-                    $this->appendReferences($doc, $back, $references, (string) $referenceLocale);
-                }
-            }
+            $this->appendReferences($doc, $back, $publication->references);
         }
 
         $xml = $doc->saveXML();
@@ -168,7 +164,7 @@ class JatsArticleBuilder
         $this->appendPermissions($doc, $articleMeta, $publication);
         $url = trim((string) ($publication->metadata['url'] ?? ''));
         if ($url !== '') {
-            $selfUri = $doc->createElement('self-uri');
+            $selfUri = $doc->createElement('self-uri', $this->text($url));
             $selfUri->setAttribute('content-type', 'web');
             $selfUri->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $url);
             $articleMeta->appendChild($selfUri);
@@ -397,6 +393,16 @@ class JatsArticleBuilder
         if ($copyrightYear !== '') {
             $permissions->appendChild($doc->createElement('copyright-year', $this->text($copyrightYear)));
         }
+        foreach ((array) $copyrightHolders as $locale => $holder) {
+            if (!is_string($holder) || trim($holder) === '') {
+                continue;
+            }
+            $holderNode = $doc->createElement('copyright-holder', $this->text($holder));
+            if (is_string($locale)) {
+                $holderNode->setAttribute('xml:lang', $locale);
+            }
+            $permissions->appendChild($holderNode);
+        }
 
         if ($licenseUrl !== '') {
             foreach (['ru' => 'Материал распространяется на условиях лицензии ', 'en' => 'This article is distributed under the terms of the license '] as $locale => $prefix) {
@@ -510,30 +516,34 @@ class JatsArticleBuilder
     private function appendReferences(
         DOMDocument $doc,
         DOMElement $back,
-        array $references,
-        string $language
+        array $referencesByLanguage
     ): void {
         $refList = $doc->createElement('ref-list');
-        $refList->setAttribute('xml:lang', $language ?: 'en');
         $back->appendChild($refList);
 
-        $languageId = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $language) ?: 'und';
-
-        foreach ($references as $index => $reference) {
-            if (!is_string($reference) || trim($reference) === '') {
-                continue;
+        $referenceCount = 0;
+        foreach ($referencesByLanguage as $references) {
+            if (is_array($references)) {
+                $referenceCount = max($referenceCount, count($references));
             }
-
+        }
+        for ($index = 0; $index < $referenceCount; $index++) {
             $ref = $doc->createElement('ref');
-            $ref->setAttribute('id', 'R-' . $languageId . '-' . ($index + 1));
-
-            $mixedCitation = $doc->createElement(
-                'mixed-citation',
-                $this->text($reference)
-            );
-
-            $ref->appendChild($mixedCitation);
-            $refList->appendChild($ref);
+            $ref->setAttribute('id', 'R' . ($index + 1));
+            foreach ($referencesByLanguage as $language => $references) {
+                $reference = is_array($references) ? ($references[$index] ?? null) : null;
+                if (!is_string($reference) || trim($reference) === '') {
+                    continue;
+                }
+                $mixedCitation = $doc->createElement('mixed-citation', $this->text($reference));
+                if (is_string($language) && $language !== '') {
+                    $mixedCitation->setAttribute('xml:lang', $language);
+                }
+                $ref->appendChild($mixedCitation);
+            }
+            if ($ref->hasChildNodes()) {
+                $refList->appendChild($ref);
+            }
         }
     }
 

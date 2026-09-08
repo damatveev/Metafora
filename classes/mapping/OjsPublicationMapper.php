@@ -117,16 +117,35 @@ class OjsPublicationMapper
     private function normalizeLocalizedValue(mixed $value, mixed $fallbackLocale): array
     {
         if (is_string($value)) {
-            return trim($value) === '' ? [] : [$this->normalizeLocale((string) $fallbackLocale) => $value];
+            return trim($value) === '' ? [] : [($this->contentLocale($value) ?: $this->normalizeLocale((string) $fallbackLocale)) => $value];
         }
         if (!is_array($value)) return [];
         $result = [];
         foreach ($value as $locale => $localizedValue) {
             if ((is_string($localizedValue) && trim($localizedValue) !== '') || (is_array($localizedValue) && $localizedValue !== [])) {
-                $result[$this->normalizeLocale((string) $locale)] = $localizedValue;
+                $normalizedLocale = $this->normalizeLocale((string) $locale);
+                $contentLocale = $this->contentLocale($localizedValue);
+                $result[$contentLocale ?: $normalizedLocale] = $localizedValue;
             }
         }
         return $result;
+    }
+
+    private function contentLocale(mixed $value): ?string
+    {
+        $text = is_array($value)
+            ? implode(' ', array_filter($value, 'is_string'))
+            : (is_string($value) ? $value : '');
+        $text = strip_tags(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $cyrillic = preg_match_all('/[А-ЯЁа-яё]/u', $text);
+        $latin = preg_match_all('/[A-Za-z]/u', $text);
+        if ($cyrillic >= 3 && $cyrillic > $latin) {
+            return 'ru';
+        }
+        if ($latin >= 3 && $latin > $cyrillic) {
+            return 'en';
+        }
+        return null;
     }
 
     private function normalizeLocale(string $locale): string
@@ -255,7 +274,7 @@ class OjsPublicationMapper
                 if (is_array($name)) {
                     foreach ($name as $locale => $localizedName) {
                         if (is_string($localizedName) && trim($localizedName) !== '') {
-                            $values[] = ['locale' => $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
+                            $values[] = ['locale' => $this->contentLocale($localizedName) ?: $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
                         }
                     }
                 } elseif (is_string($name) && trim($name) !== '') {
@@ -269,7 +288,7 @@ class OjsPublicationMapper
             if (is_array($legacy)) {
                 foreach ($legacy as $locale => $localizedName) {
                     if (is_string($localizedName) && trim($localizedName) !== '') {
-                        $values[] = ['locale' => $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
+                        $values[] = ['locale' => $this->contentLocale($localizedName) ?: $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
                     }
                 }
             } elseif (is_string($legacy) && trim($legacy) !== '') {

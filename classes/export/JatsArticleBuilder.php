@@ -49,7 +49,11 @@ class JatsArticleBuilder
         if ($includeReferences && $publication->references !== []) {
             $back = $doc->createElement('back');
             $article->appendChild($back);
-            $this->appendReferences($doc, $back, $publication->references, $language);
+            foreach ($publication->references as $referenceLocale => $references) {
+                if (is_array($references)) {
+                    $this->appendReferences($doc, $back, $references, (string) $referenceLocale);
+                }
+            }
         }
 
         $xml = $doc->saveXML();

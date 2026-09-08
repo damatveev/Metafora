@@ -13,6 +13,7 @@ namespace APP\plugins\importexport\metafora\classes\mapping;
 
 use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\model\MetaforaPublication;
+use APP\plugins\importexport\metafora\classes\export\PdfReferenceExtractor;
 use APP\submission\Submission;
 use PKP\context\Context;
 use PKP\core\PKPApplication;
@@ -99,7 +100,11 @@ class OjsPublicationMapper
             issue: $issueData,
             journal: $journal,
             files: $this->mapFiles($galleys),
-            references: $this->mapReferences($publication->getData('citationsRaw')),
+            references: $this->mapReferences(
+                $publication->getData('citationsRaw'),
+                $this->normalizeLocale((string) $publication->getData('locale')),
+                $this->pdfPath($galleys)
+            ),
             metadata: $this->mapMetadata($submission, $publication, $context),
         );
     }
@@ -164,24 +169,43 @@ class OjsPublicationMapper
         return $files;
     }
 
-    private function mapReferences(mixed $citationsRaw): array
+    private function mapReferences(mixed $citationsRaw, string $locale, ?string $pdfPath): array
     {
         if ($citationsRaw instanceof Stringable) {
             $citationsRaw = (string) $citationsRaw;
         }
 
         if (!is_string($citationsRaw) || trim($citationsRaw) === '') {
-            return [];
+            $references = [];
+        } else {
+            $references = array_values(array_filter(array_map(
+                static fn (string $reference): string => trim($reference),
+                preg_split('/\R/u', $citationsRaw) ?: []
+            )));
         }
+        $groups = $references === [] ? [] : [$locale => $references];
+        if ($pdfPath !== null) {
+            foreach ((new PdfReferenceExtractor())->extract($pdfPath) as $pdfLocale => $pdfReferences) {
+                if (empty($groups[$pdfLocale])) {
+                    $groups[$pdfLocale] = $pdfReferences;
+                }
+            }
+        }
+        return $groups;
+    }
 
-        return array_values(
-            array_filter(
-                array_map(
-                    static fn (string $reference): string => trim($reference),
-                    preg_split('/\R/u', $citationsRaw) ?: []
-                )
-            )
-        );
+    private function pdfPath(array $galleys): ?string
+    {
+        foreach ($galleys as $galley) {
+            $submissionFileId = (int) $galley->getData('submissionFileId');
+            $submissionFile = $submissionFileId ? Repo::submissionFile()->get($submissionFileId) : null;
+            if (!$submissionFile) continue;
+            $file = app()->get('file')->get($submissionFile->getData('fileId'));
+            if (!$file || strtolower((string) ($file->mimetype ?? $submissionFile->getData('mimetype'))) !== 'application/pdf') continue;
+            $path = rtrim((string) \PKP\config\Config::getVar('files', 'files_dir'), '/\\') . DIRECTORY_SEPARATOR . ltrim((string) $file->path, '/\\');
+            if (is_file($path) && is_readable($path)) return $path;
+        }
+        return null;
     }
 
     private function mapMetadata(

@@ -122,7 +122,11 @@ class OjsPublicationMapper
             foreach ((array) $items as $item) {
                 $name = is_array($item) ? ($item['name'] ?? '') : $item;
                 if (is_string($name) && trim($name) !== '') {
-                    $names[] = trim($name);
+                    foreach (preg_split('/\s*[,;]\s*/u', $name) ?: [] as $keyword) {
+                        if ($keyword !== '') {
+                            $names[] = $keyword;
+                        }
+                    }
                 }
             }
             if ($names !== []) {

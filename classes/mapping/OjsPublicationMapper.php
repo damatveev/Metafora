@@ -15,6 +15,7 @@ use APP\facades\Repo;
 use APP\plugins\importexport\metafora\classes\model\MetaforaPublication;
 use APP\submission\Submission;
 use PKP\context\Context;
+use PKP\core\PKPApplication;
 use PKP\facades\Locale;
 use Stringable;
 
@@ -56,9 +57,10 @@ class OjsPublicationMapper
             foreach ($authorCollection as $author) {
                 $affiliations = $this->mapAffiliations($author);
                 $authors[] = [
-                    'givenName' => $author->getData('givenName'),
-                    'familyName' => $author->getData('familyName'),
-                    'preferredPublicName' => $author->getData('preferredPublicName'),
+                    'givenName' => $this->normalizeLocalizedValue($author->getData('givenName'), $publication->getData('locale')),
+                    'familyName' => $this->normalizeLocalizedValue($author->getData('familyName'), $publication->getData('locale')),
+                    'preferredPublicName' => $this->normalizeLocalizedValue($author->getData('preferredPublicName'), $publication->getData('locale')),
+                    'email' => $author->getData('email'),
                     'affiliation' => $affiliations[0]['organization'] ?? $author->getData('affiliation'),
                     'affiliations' => $affiliations,
                     'country' => $author->getData('country'),
@@ -69,7 +71,7 @@ class OjsPublicationMapper
 
         $journal = [
             'id' => $context->getId(),
-            'name' => $context->getData('name'),
+            'name' => $this->normalizeLocalizedValue($context->getData('name'), $context->getData('primaryLocale')),
             'acronym' => $context->getData('acronym'),
             'printIssn' => $context->getData('printIssn'),
             'onlineIssn' => $context->getData('onlineIssn'),
@@ -104,28 +106,28 @@ class OjsPublicationMapper
 
     private function mapLocalizedField($publication, string $field): array
     {
-        $result = [];
-        $locales = [];
+        return $this->normalizeLocalizedValue($publication->getData($field), $publication->getData('locale'));
+    }
 
-        $primaryLocale = $publication->getData('locale');
-
-        if (is_string($primaryLocale) && $primaryLocale !== '') {
-            $locales[] = $primaryLocale;
+    private function normalizeLocalizedValue(mixed $value, mixed $fallbackLocale): array
+    {
+        if (is_string($value)) {
+            return trim($value) === '' ? [] : [$this->normalizeLocale((string) $fallbackLocale) => $value];
         }
-
-        $locales = array_unique(array_merge($locales, ['en', 'ru']));
-
-        foreach ($locales as $locale) {
-            $value = $publication->getData($field, $locale);
-
-            if (is_string($value) && trim($value) !== '') {
-                $result[$locale] = $value;
-            } elseif (is_array($value) && $value !== []) {
-                $result[$locale] = $value;
+        if (!is_array($value)) return [];
+        $result = [];
+        foreach ($value as $locale => $localizedValue) {
+            if ((is_string($localizedValue) && trim($localizedValue) !== '') || (is_array($localizedValue) && $localizedValue !== [])) {
+                $result[$this->normalizeLocale((string) $locale)] = $localizedValue;
             }
         }
-
         return $result;
+    }
+
+    private function normalizeLocale(string $locale): string
+    {
+        $locale = strtolower(str_replace('-', '_', trim($locale)));
+        return str_starts_with($locale, 'ru') ? 'ru' : (str_starts_with($locale, 'en') ? 'en' : ($locale ?: 'en'));
     }
 
     private function mapFiles(array $galleys): array
@@ -190,14 +192,14 @@ class OjsPublicationMapper
         return [
             'articleId' => $submission->getId(),
             'publicationId' => $publication->getId(),
-            'language' => $publication->getData('locale'),
+            'language' => $this->normalizeLocale((string) $publication->getData('locale')),
             'datePublished' => $publication->getData('datePublished'),
             'lastModified' => $publication->getData('lastModified'),
             'pages' => $this->mapPages($publication),
             'licenseUrl' => $publication->getData('licenseUrl'),
-            'copyrightHolder' => $publication->getData('copyrightHolder'),
+            'copyrightHolder' => $this->normalizeLocalizedValue($publication->getData('copyrightHolder'), $publication->getData('locale')),
             'copyrightYear' => $publication->getData('copyrightYear'),
-            'urlPath' => $publication->getData('urlPath'),
+            'url' => $this->publicationUrl($submission, $context),
             'identifiers' => [
                 'doi' => $publication->getDoi(),
             ],
@@ -205,6 +207,12 @@ class OjsPublicationMapper
             'status' => 'published',
             'journalId' => $context->getId(),
         ];
+    }
+
+    private function publicationUrl(Submission $submission, Context $context): string
+    {
+        $request = \Application::get()->getRequest();
+        return $request->getDispatcher()->url($request, PKPApplication::ROUTE_PAGE, $context->getPath(), 'article', 'view', [$submission->getId()]);
     }
 
     /**
@@ -223,7 +231,7 @@ class OjsPublicationMapper
                 if (is_array($name)) {
                     foreach ($name as $locale => $localizedName) {
                         if (is_string($localizedName) && trim($localizedName) !== '') {
-                            $values[] = ['locale' => (string) $locale, 'name' => trim($localizedName)];
+                            $values[] = ['locale' => $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
                         }
                     }
                 } elseif (is_string($name) && trim($name) !== '') {
@@ -237,7 +245,7 @@ class OjsPublicationMapper
             if (is_array($legacy)) {
                 foreach ($legacy as $locale => $localizedName) {
                     if (is_string($localizedName) && trim($localizedName) !== '') {
-                        $values[] = ['locale' => (string) $locale, 'name' => trim($localizedName)];
+                        $values[] = ['locale' => $this->normalizeLocale((string) $locale), 'name' => trim($localizedName)];
                     }
                 }
             } elseif (is_string($legacy) && trim($legacy) !== '') {

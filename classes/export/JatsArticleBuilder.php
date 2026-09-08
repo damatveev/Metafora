@@ -49,7 +49,7 @@ class JatsArticleBuilder
         if ($includeReferences && $publication->references !== []) {
             $back = $doc->createElement('back');
             $article->appendChild($back);
-            $this->appendReferences($doc, $back, $publication->references);
+            $this->appendReferences($doc, $back, $publication->references, $language);
         }
 
         $xml = $doc->saveXML();
@@ -156,6 +156,13 @@ class JatsArticleBuilder
         }
 
         $this->appendPages($doc, $articleMeta, (string) ($publication->metadata['pages'] ?? ''));
+        $url = trim((string) ($publication->metadata['url'] ?? ''));
+        if ($url !== '') {
+            $selfUri = $doc->createElement('self-uri');
+            $selfUri->setAttribute('content-type', 'web');
+            $selfUri->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $url);
+            $articleMeta->appendChild($selfUri);
+        }
         $this->appendPermissions($doc, $articleMeta, $publication);
 
         $this->appendAbstracts($doc, $articleMeta, $publication->abstract);
@@ -233,6 +240,11 @@ class JatsArticleBuilder
                 $name->appendChild(
                     $doc->createElement('given-names', $this->text($givenName))
                 );
+            }
+
+            $email = trim((string) ($author['email'] ?? ''));
+            if ($email !== '') {
+                $contrib->appendChild($doc->createElement('email', $this->text($email)));
             }
 
             $orcid = trim((string) ($author['orcid'] ?? ''));
@@ -410,7 +422,7 @@ class JatsArticleBuilder
         array $abstracts
     ): void {
         foreach ($abstracts as $locale => $abstract) {
-            if (!is_string($abstract) || trim(strip_tags($abstract)) === '') {
+            if (!is_string($abstract) || $this->plainText($abstract) === '') {
                 continue;
             }
 
@@ -420,7 +432,7 @@ class JatsArticleBuilder
             $node->appendChild(
                 $doc->createElement(
                     'p',
-                    $this->text(strip_tags($abstract))
+                    $this->plainText($abstract)
                 )
             );
 
@@ -464,9 +476,11 @@ class JatsArticleBuilder
     private function appendReferences(
         DOMDocument $doc,
         DOMElement $back,
-        array $references
+        array $references,
+        string $language
     ): void {
         $refList = $doc->createElement('ref-list');
+        $refList->setAttribute('xml:lang', $language ?: 'en');
         $back->appendChild($refList);
 
         foreach ($references as $index => $reference) {
@@ -520,10 +534,11 @@ class JatsArticleBuilder
             $value
         );
 
-        return htmlspecialchars(
-            trim($value),
-            ENT_QUOTES | ENT_XML1,
-            'UTF-8'
-        );
+        return trim($value);
+    }
+
+    private function plainText(string $value): string
+    {
+        return trim(strip_tags(html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
     }
 }

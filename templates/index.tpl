@@ -32,6 +32,15 @@
 							$(this).toggle(value === 'all' || $(this).attr('data-metafora-status') === value);
 						{rdelim});
 					{rdelim};
+					$('#metaforaStatusFilter').on('change', function() {ldelim}
+						window.metaforaFilterRows(this.value);
+					{rdelim});
+					var metaforaTable = document.querySelector('.metaforaArticlesTable');
+					if (metaforaTable) {ldelim}
+						new MutationObserver(function() {ldelim}
+							window.metaforaFilterRows($('#metaforaStatusFilter').val());
+						{rdelim}).observe(metaforaTable, {ldelim}childList: true, subtree: true{rdelim});
+					{rdelim}
 				{rdelim});
 			</script>
 			<form id="metaforaArticlesForm" class="pkp_form" action="{plugin_url path="sendSubmissions"}" method="post">

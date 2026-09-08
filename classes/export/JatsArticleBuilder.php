@@ -160,6 +160,7 @@ class JatsArticleBuilder
         }
 
         $this->appendPages($doc, $articleMeta, (string) ($publication->metadata['pages'] ?? ''));
+        $this->appendPermissions($doc, $articleMeta, $publication);
         $url = trim((string) ($publication->metadata['url'] ?? ''));
         if ($url !== '') {
             $selfUri = $doc->createElement('self-uri');
@@ -167,7 +168,6 @@ class JatsArticleBuilder
             $selfUri->setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', $url);
             $articleMeta->appendChild($selfUri);
         }
-        $this->appendPermissions($doc, $articleMeta, $publication);
 
         $this->appendAbstracts($doc, $articleMeta, $publication->abstract);
         $this->appendKeywords($doc, $articleMeta, $publication->keywords);

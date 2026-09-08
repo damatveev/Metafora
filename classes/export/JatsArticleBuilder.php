@@ -517,13 +517,15 @@ class JatsArticleBuilder
         $refList->setAttribute('xml:lang', $language ?: 'en');
         $back->appendChild($refList);
 
+        $languageId = preg_replace('/[^A-Za-z0-9_.-]+/', '-', $language) ?: 'und';
+
         foreach ($references as $index => $reference) {
             if (!is_string($reference) || trim($reference) === '') {
                 continue;
             }
 
             $ref = $doc->createElement('ref');
-            $ref->setAttribute('id', 'R' . ($index + 1));
+            $ref->setAttribute('id', 'R-' . $languageId . '-' . ($index + 1));
 
             $mixedCitation = $doc->createElement(
                 'mixed-citation',

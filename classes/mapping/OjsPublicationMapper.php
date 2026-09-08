@@ -233,12 +233,14 @@ class OjsPublicationMapper
         Context $context,
         array $authors
     ): array {
-        $copyrightHolders = $this->normalizeLocalizedValue(
-            $publication->getData('copyrightHolder'),
-            $publication->getData('locale')
-        );
+        // Metafora expects the article authors in the rightsholder field.
+        // Use OJS' copyright holder only when no author name is available.
+        $copyrightHolders = $this->authorNamesByLocale($authors);
         if ($copyrightHolders === []) {
-            $copyrightHolders = $this->authorNamesByLocale($authors);
+            $copyrightHolders = $this->normalizeLocalizedValue(
+                $publication->getData('copyrightHolder'),
+                $publication->getData('locale')
+            );
         }
 
         return [

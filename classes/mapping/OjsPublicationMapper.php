@@ -102,7 +102,7 @@ class OjsPublicationMapper
             files: $this->mapFiles($galleys),
             references: $this->mapReferences(
                 $publication->getData('citationsRaw'),
-                $this->normalizeLocale((string) $publication->getData('locale')),
+                $this->normalizeLocale((string) $context->getData('primaryLocale')),
                 $this->pdfPath($galleys)
             ),
             metadata: $this->mapMetadata($submission, $publication, $context),

@@ -38,6 +38,9 @@ class MetaforaSettingsForm extends Form
         if ($this->getData('includeReferences') === null) {
             $this->setData('includeReferences', true);
         }
+        if (!$this->getData('deliveryMode')) {
+            $this->setData('deliveryMode', 'api');
+        }
     }
 
     public function readInputData(): void
@@ -48,6 +51,7 @@ class MetaforaSettingsForm extends Form
     public function execute(...$functionArgs)
     {
         parent::execute(...$functionArgs);
+        $this->setData('deliveryMode', $this->getData('deliveryMode') === 'download' ? 'download' : 'api');
         foreach ($this->getFormFields() as $fieldName => $fieldType) {
             $this->plugin->updateSetting($this->contextId, $fieldName, $this->getData($fieldName), $fieldType);
         }
@@ -58,6 +62,7 @@ class MetaforaSettingsForm extends Form
         return [
             'apiUrl' => 'string',
             'apiToken' => 'string',
+            'deliveryMode' => 'string',
             'validateXml' => 'bool',
             'includePdf' => 'bool',
             'includeReferences' => 'bool',

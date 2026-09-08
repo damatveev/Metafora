@@ -141,3 +141,18 @@ msgstr "Дата"
 
 msgid "plugins.importexport.metafora.details.type"
 msgstr "Тип экспорта"
+
+msgid "plugins.importexport.metafora.settings.deliveryMode"
+msgstr "Способ экспорта"
+
+msgid "plugins.importexport.metafora.settings.deliveryMode.api"
+msgstr "Отправлять напрямую в ИС Метафора по API"
+
+msgid "plugins.importexport.metafora.settings.deliveryMode.download"
+msgstr "Скачивать JATS XML для ручной загрузки"
+
+msgid "plugins.importexport.metafora.download.articles"
+msgstr "Скачать выбранные статьи"
+
+msgid "plugins.importexport.metafora.download.issues"
+msgstr "Скачать выбранные выпуски"

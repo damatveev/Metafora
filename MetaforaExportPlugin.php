@@ -133,6 +133,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     'metaforaSettingsTemplate' => $this->getTemplateResource('settingsForm.tpl'),
                     'apiUrl' => $settingsForm->getData('apiUrl'),
                     'apiToken' => $settingsForm->getData('apiToken'),
+                    'deliveryMode' => $settingsForm->getData('deliveryMode') === 'download' ? 'download' : 'api',
                     'validateXml' => (bool) $settingsForm->getData('validateXml'),
                     'includePdf' => (bool) $settingsForm->getData('includePdf'),
                     'includeReferences' => (bool) $settingsForm->getData('includeReferences'),
@@ -151,12 +152,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 if ($error === null) {
                     [$documents, $validationErrors] = $this->buildDocuments($submissionIds, $context);
                 }
-                $this->sendAndDownloadReport(
-                    $documents,
-                    $context,
-                    $error,
-                    $validationErrors
-                );
+                $this->deliverDocuments($documents, $context, $error, $validationErrors);
                 return;
 
             case 'sendIssues':
@@ -182,12 +178,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         $error = $exception->getMessage();
                     }
                 }
-                $this->sendAndDownloadReport(
-                    $documents,
-                    $context,
-                    $error,
-                    $validationErrors
-                );
+                $this->deliverDocuments($documents, $context, $error, $validationErrors);
                 return;
 
             default:
@@ -440,6 +431,57 @@ class MetaforaExportPlugin extends ImportExportPlugin
     private function getSubmissionStatuses(Context $context): array
     {
         return $this->history()->getLatestForJournal($context->getId());
+    }
+
+    private function deliverDocuments(
+        array $documents,
+        Context $context,
+        ?string $initialError,
+        array $validationErrors
+    ): void {
+        if ($this->getSetting($context->getId(), 'deliveryMode') === 'download') {
+            if ($documents !== []) {
+                $this->downloadDocuments($documents, $context, $validationErrors);
+                return;
+            }
+        }
+        $this->sendAndDownloadReport($documents, $context, $initialError, $validationErrors);
+    }
+
+    /** Download one JATS file directly or several files as a ZIP archive. */
+    private function downloadDocuments(array $documents, Context $context, array $errors = []): void
+    {
+        $fileManager = new FileManager();
+        if (count($documents) === 1 && $errors === []) {
+            $submissionId = (int) array_key_first($documents);
+            $path = $this->getExportFileName($this->getExportPath(), 'metafora-' . $submissionId, $context);
+            $fileManager->writeFile($path, (string) reset($documents));
+            $fileManager->downloadByPath($path);
+            $fileManager->deleteByPath($path);
+            return;
+        }
+
+        if (!class_exists(\ZipArchive::class)) {
+            throw new \RuntimeException('PHP ZIP extension is required to download several JATS files.');
+        }
+        $xmlPath = $this->getExportFileName($this->getExportPath(), 'metafora-export', $context);
+        $zipPath = preg_replace('/\.xml$/', '.zip', $xmlPath) ?: ($xmlPath . '.zip');
+        $zip = new \ZipArchive();
+        if ($zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new \RuntimeException('Unable to create the Metafora export archive.');
+        }
+        foreach ($documents as $submissionId => $xml) {
+            $zip->addFromString('article-' . (int) $submissionId . '.xml', (string) $xml);
+        }
+        if ($errors !== []) {
+            $zip->addFromString('errors.json', json_encode(
+                $errors,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            ) ?: '[]');
+        }
+        $zip->close();
+        $fileManager->downloadByPath($zipPath);
+        $fileManager->deleteByPath($zipPath);
     }
 
     private function history(): ExportHistoryRepository

@@ -1,7 +1,7 @@
 {extends file="layouts/backend.tpl"}
 
 {block name="page"}
-	<link rel="stylesheet" href="{$baseUrl}/plugins/importexport/metafora/styles/admin.css?v=0.3.1" />
+	<link rel="stylesheet" href="{$baseUrl}/plugins/importexport/metafora/styles/admin.css?v=0.3.2" />
 	<h1 class="app__pageHeading">{$pageTitle}</h1>
 
 	<script type="text/javascript">
@@ -28,19 +28,13 @@
 				$(function() {ldelim}
 					$('#metaforaArticlesForm').pkpHandler('$.pkp.controllers.form.FormHandler');
 					window.metaforaFilterRows = function(value) {ldelim}
-						$('.metaforaArticleRow').each(function() {ldelim}
-							$(this).toggle(value === 'all' || $(this).attr('data-metafora-status') === value);
-						{rdelim});
+						var table = document.querySelector('.metaforaArticlesTable');
+						if (table) table.setAttribute('data-status-filter', value || 'all');
 					{rdelim};
 					$('#metaforaStatusFilter').on('change', function() {ldelim}
 						window.metaforaFilterRows(this.value);
 					{rdelim});
-					var metaforaTable = document.querySelector('.metaforaArticlesTable');
-					if (metaforaTable) {ldelim}
-						new MutationObserver(function() {ldelim}
-							window.metaforaFilterRows($('#metaforaStatusFilter').val());
-						{rdelim}).observe(metaforaTable, {ldelim}childList: true, subtree: true{rdelim});
-					{rdelim}
+					window.metaforaFilterRows($('#metaforaStatusFilter').val());
 				{rdelim});
 			</script>
 			<form id="metaforaArticlesForm" class="pkp_form" action="{plugin_url path="sendSubmissions"}" method="post">
@@ -55,7 +49,7 @@
 							<option value="not_sent">{translate key="plugins.importexport.metafora.filter.notSent"}</option>
 						</select>
 					</div>
-					<div class="metaforaArticlesTable" role="table" aria-label="{translate key="plugins.importexport.metafora.tab.articles"}">
+					<div class="metaforaArticlesTable" data-status-filter="all" role="table" aria-label="{translate key="plugins.importexport.metafora.tab.articles"}">
 						<div class="metaforaArticlesTable__head" role="row">
 							<span></span>
 							<span>{translate key="plugins.importexport.metafora.table.issue"}</span>
@@ -110,7 +104,7 @@
 							</template>
 						</pkp-button>
 						<pkp-button @click="submit('#metaforaArticlesForm')">
-							{translate key="plugins.importexport.metafora.send.articles"}
+							{if $deliveryMode eq 'download'}{translate key="plugins.importexport.metafora.download.articles"}{else}{translate key="plugins.importexport.metafora.send.articles"}{/if}
 						</pkp-button>
 					{/fbvFormSection}
 				{/fbvFormArea}
@@ -132,7 +126,11 @@
 							<div class="metaforaIssueRow"><div><input type="checkbox" name="selectedIssues[]" value="{$issue.id|escape}" /></div><div>{$issue.label|escape}</div><div>{$issue.articleCount|escape}</div><div><a class="pkp_button" href="{$issue.url|escape}">{translate key="common.view"}</a></div><div class="metaforaStatus metaforaStatus--{$issue.status|escape}">{$issue.statusLabel|escape}</div><div class="metaforaArticleRow__muted">{$issue.error|escape}</div></div>
 						{/foreach}
 					</div>
-					{fbvFormButtons submitText="plugins.importexport.metafora.send.issues" hideCancel="true"}
+					{if $deliveryMode eq 'download'}
+						{fbvFormButtons submitText="plugins.importexport.metafora.download.issues" hideCancel="true"}
+					{else}
+						{fbvFormButtons submitText="plugins.importexport.metafora.send.issues" hideCancel="true"}
+					{/if}
 				{/fbvFormArea}
 			</form>
 		</div>

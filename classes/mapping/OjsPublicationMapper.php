@@ -102,7 +102,7 @@ class OjsPublicationMapper
             files: $this->mapFiles($galleys),
             references: $this->mapReferences(
                 $publication->getData('citationsRaw'),
-                $this->normalizeLocale((string) $context->getData('primaryLocale')),
+                $this->normalizeLocale((string) $publication->getData('locale')),
                 $this->pdfPath($galleys)
             ),
             metadata: $this->mapMetadata($submission, $publication, $context, $authors),
@@ -209,6 +209,11 @@ class OjsPublicationMapper
                     $groups[$pdfLocale] = $pdfReferences;
                 }
             }
+        }
+        if (count($groups) === 1) {
+            $sourceLocale = (string) array_key_first($groups);
+            $fallbackLocale = $sourceLocale === 'ru' ? 'en' : 'ru';
+            $groups[$fallbackLocale] = reset($groups);
         }
         return $groups;
     }

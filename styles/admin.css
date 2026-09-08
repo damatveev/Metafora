@@ -114,3 +114,8 @@
         flex-direction: column;
     }
 }
+.metaforaArticlesTable[data-status-filter="success"] .metaforaArticleRow:not([data-metafora-status="success"]),
+.metaforaArticlesTable[data-status-filter="failed"] .metaforaArticleRow:not([data-metafora-status="failed"]),
+.metaforaArticlesTable[data-status-filter="not_sent"] .metaforaArticleRow:not([data-metafora-status="not_sent"]) {
+	display: none !important;
+}

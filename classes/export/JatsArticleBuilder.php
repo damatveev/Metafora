@@ -138,7 +138,12 @@ class JatsArticleBuilder
         }
 
         $this->appendTitles($doc, $articleMeta, $publication->title);
-        $this->appendAuthors($doc, $articleMeta, $publication->authors);
+        $this->appendAuthors(
+            $doc,
+            $articleMeta,
+            $publication->authors,
+            (string) ($publication->metadata['language'] ?? '')
+        );
         $this->appendPublicationDate($doc, $articleMeta, $publication);
 
         if (!empty($publication->issue['volume'])) {
@@ -192,6 +197,9 @@ class JatsArticleBuilder
             'article-title',
             $this->text($primaryTitle)
         );
+        if (is_string($primaryLocale) && $primaryLocale !== '') {
+            $articleTitle->setAttribute('xml:lang', $primaryLocale);
+        }
         $titleGroup->appendChild($articleTitle);
 
         foreach ($titles as $locale => $title) {
@@ -213,7 +221,8 @@ class JatsArticleBuilder
     private function appendAuthors(
         DOMDocument $doc,
         DOMElement $articleMeta,
-        array $authors
+        array $authors,
+        string $articleLocale
     ): void {
         if ($authors === []) {
             return;
@@ -222,44 +231,54 @@ class JatsArticleBuilder
         $contribGroup = $doc->createElement('contrib-group');
         $articleMeta->appendChild($contribGroup);
 
-        foreach ($authors as $author) {
+        $affiliationNodes = [];
+        foreach ($authors as $authorIndex => $author) {
             $contrib = $doc->createElement('contrib');
             $contrib->setAttribute('contrib-type', 'author');
             $contribGroup->appendChild($contrib);
 
-            $name = $doc->createElement('name');
-            $name->setAttribute('name-style', 'western');
-            $contrib->appendChild($name);
-
-            $familyName = $this->localized($author['familyName'] ?? null);
-            $givenName = $this->localized($author['givenName'] ?? null);
-
-            if ($familyName !== '') {
-                $name->appendChild(
-                    $doc->createElement('surname', $this->text($familyName))
-                );
+            $orcid = trim((string) ($author['orcid'] ?? ''));
+            if ($orcid !== '') {
+                $contribId = $doc->createElement('contrib-id', $this->text($orcid));
+                $contribId->setAttribute('contrib-id-type', 'orcid');
+                $contrib->appendChild($contribId);
             }
 
-            if ($givenName !== '') {
-                $name->appendChild(
-                    $doc->createElement('given-names', $this->text($givenName))
-                );
+            $familyNames = (array) ($author['familyName'] ?? []);
+            $givenNames = (array) ($author['givenName'] ?? []);
+            $nameLocales = array_values(array_unique(array_merge(array_keys($familyNames), array_keys($givenNames))));
+            usort($nameLocales, static fn (string $a, string $b): int => ($a === $articleLocale ? -1 : 0) <=> ($b === $articleLocale ? -1 : 0));
+            if ($nameLocales === []) {
+                $nameLocales = [''];
+            }
+
+            $nameParent = count($nameLocales) > 1 ? $doc->createElement('name-alternatives') : $contrib;
+            if ($nameParent !== $contrib) {
+                $contrib->appendChild($nameParent);
+            }
+            foreach ($nameLocales as $nameLocale) {
+                $familyName = trim((string) ($familyNames[$nameLocale] ?? ''));
+                $givenName = trim((string) ($givenNames[$nameLocale] ?? ''));
+                if ($familyName === '' && $givenName === '') {
+                    continue;
+                }
+                $name = $doc->createElement('name');
+                $name->setAttribute('name-style', 'western');
+                if ($nameLocale !== '') {
+                    $name->setAttribute('xml:lang', $nameLocale);
+                }
+                if ($familyName !== '') {
+                    $name->appendChild($doc->createElement('surname', $this->text($familyName)));
+                }
+                if ($givenName !== '') {
+                    $name->appendChild($doc->createElement('given-names', $this->text($givenName)));
+                }
+                $nameParent->appendChild($name);
             }
 
             $email = trim((string) ($author['email'] ?? ''));
             if ($email !== '') {
                 $contrib->appendChild($doc->createElement('email', $this->text($email)));
-            }
-
-            $orcid = trim((string) ($author['orcid'] ?? ''));
-
-            if ($orcid !== '') {
-                $contribId = $doc->createElement(
-                    'contrib-id',
-                    $this->text($orcid)
-                );
-                $contribId->setAttribute('contrib-id-type', 'orcid');
-                $contrib->appendChild($contribId);
             }
 
             $affiliations = [];
@@ -275,8 +294,15 @@ class JatsArticleBuilder
                 }
             }
 
-            foreach ($affiliations as $affiliation) {
+            foreach ($affiliations as $affiliationIndex => $affiliation) {
+                $affiliationId = 'aff-' . ($authorIndex + 1) . '-' . ($affiliationIndex + 1);
+                $xref = $doc->createElement('xref', (string) ($affiliationIndex + 1));
+                $xref->setAttribute('ref-type', 'aff');
+                $xref->setAttribute('rid', $affiliationId);
+                $contrib->appendChild($xref);
+
                 $aff = $doc->createElement('aff');
+                $aff->setAttribute('id', $affiliationId);
                 if (!empty($affiliation['locale'])) {
                     $aff->setAttribute('xml:lang', (string) $affiliation['locale']);
                 }
@@ -316,8 +342,12 @@ class JatsArticleBuilder
                     $aff->appendChild($doc->createElement('country', $this->text($country)));
                 }
 
-                $contrib->appendChild($aff);
+                $affiliationNodes[] = $aff;
             }
+        }
+
+        foreach ($affiliationNodes as $affiliationNode) {
+            $articleMeta->appendChild($affiliationNode);
         }
     }
 

@@ -674,6 +674,36 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     return;
 
 
+                case 'inspect-article':
+
+                    $submissionId = (int)($args[2] ?? 0);
+                    if ($submissionId <= 0) {
+                        throw new \InvalidArgumentException('Submission ID is required.');
+                    }
+
+                    $manager = new ExportManager();
+                    $documents = $manager->exportJats([$submissionId], $context);
+                    if (!isset($documents[$submissionId])) {
+                        throw new \RuntimeException("Published submission {$submissionId} was not found in this journal.");
+                    }
+
+                    $dir = 'metafora-export/diagnostics';
+                    if (!is_dir($dir)) {
+                        mkdir($dir, 0755, true);
+                    }
+
+                    $xmlFile = $dir . '/' . $submissionId . '.xml';
+                    $jsonFile = $dir . '/' . $submissionId . '.json';
+                    $xml = $documents[$submissionId];
+                    file_put_contents($xmlFile, $xml);
+                    file_put_contents($jsonFile, $manager->exportJson([$submissionId], $context));
+
+                    echo "XML: {$xmlFile}\n";
+                    echo 'SHA256: ' . hash('sha256', $xml) . "\n";
+                    echo "MAPPED DATA: {$jsonFile}\n";
+                    return;
+
+
                 case 'test-connection':
 
                     $apiUrl = (string)$this->getSetting(
@@ -732,6 +762,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
         echo "  php tools/importExport.php MetaforaExportPlugin issues <journal>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin issue-info <journal> <issueId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin export-jats-issue <journal> <issueId>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin inspect-article <journal> <submissionId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin test-connection <journal>\n";
     }
 

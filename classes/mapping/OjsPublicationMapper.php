@@ -105,7 +105,7 @@ class OjsPublicationMapper
                 $this->normalizeLocale((string) $context->getData('primaryLocale')),
                 $this->pdfPath($galleys)
             ),
-            metadata: $this->mapMetadata($submission, $publication, $context),
+            metadata: $this->mapMetadata($submission, $publication, $context, $authors),
         );
     }
 
@@ -230,8 +230,17 @@ class OjsPublicationMapper
     private function mapMetadata(
         Submission $submission,
         $publication,
-        Context $context
+        Context $context,
+        array $authors
     ): array {
+        $copyrightHolders = $this->normalizeLocalizedValue(
+            $publication->getData('copyrightHolder'),
+            $publication->getData('locale')
+        );
+        if ($copyrightHolders === []) {
+            $copyrightHolders = $this->authorNamesByLocale($authors);
+        }
+
         return [
             'articleId' => $submission->getId(),
             'publicationId' => $publication->getId(),
@@ -240,7 +249,7 @@ class OjsPublicationMapper
             'lastModified' => $publication->getData('lastModified'),
             'pages' => $this->mapPages($publication),
             'licenseUrl' => $publication->getData('licenseUrl'),
-            'copyrightHolder' => $this->normalizeLocalizedValue($publication->getData('copyrightHolder'), $publication->getData('locale')),
+            'copyrightHolder' => $copyrightHolders,
             'copyrightYear' => $publication->getData('copyrightYear'),
             'url' => $this->publicationUrl($submission, $context),
             'identifiers' => [
@@ -255,7 +264,40 @@ class OjsPublicationMapper
     private function publicationUrl(Submission $submission, Context $context): string
     {
         $request = \Application::get()->getRequest();
-        return $request->getDispatcher()->url($request, PKPApplication::ROUTE_PAGE, $context->getPath(), 'article', 'view', [$submission->getId()]);
+        return $request->getDispatcher()->url(
+            $request,
+            PKPApplication::ROUTE_PAGE,
+            $context->getPath(),
+            'article',
+            'view',
+            [$submission->getId()],
+            urlLocaleForPage: ''
+        );
+    }
+
+    private function authorNamesByLocale(array $authors): array
+    {
+        $names = [];
+        foreach ($authors as $author) {
+            $locales = array_unique(array_merge(
+                array_keys((array) ($author['givenName'] ?? [])),
+                array_keys((array) ($author['familyName'] ?? [])),
+                array_keys((array) ($author['preferredPublicName'] ?? []))
+            ));
+            foreach ($locales as $locale) {
+                $name = trim((string) (($author['preferredPublicName'][$locale] ?? '')));
+                if ($name === '') {
+                    $name = trim(implode(' ', array_filter([
+                        $author['givenName'][$locale] ?? '',
+                        $author['familyName'][$locale] ?? '',
+                    ])));
+                }
+                if ($name !== '') {
+                    $names[$locale][] = $name;
+                }
+            }
+        }
+        return array_map(static fn (array $items): string => implode(', ', $items), $names);
     }
 
     /**

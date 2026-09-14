@@ -2,6 +2,14 @@
 
 All notable changes to the Metafora OJS plugin are documented here.
 
+## [0.4.0.2] - 2026-09-14
+
+### Added
+
+- GNU GPL v3.0-or-later license text.
+- Plugin author name and contact address.
+- Boosty donation link and QR code in the OJS administration interface and README.
+
 ## [0.4.0.1] - 2026-09-14
 
 ### Added

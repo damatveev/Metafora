@@ -2,7 +2,7 @@
 
 An Import/Export plugin for OJS 3.5.0.5+ that exports published articles and issues to the Metafora API in JATS XML, optionally with publication PDFs.
 
-Current release: **0.4.0.1**
+Current release: **0.4.0.2**
 
 ## Features
 
@@ -52,4 +52,19 @@ The plugin uses four-part OJS release numbers in `version.xml`. Git tags use the
 
 ## Author
 
-Dmitry Matveev (Дмитрий Матвеев).
+Dmitry Matveev (Дмитрий Матвеев)  
+E-mail: [d.a.matveev@gmail.com](mailto:d.a.matveev@gmail.com)
+
+## Support the project
+
+If the plugin is useful, you can support its continued development:
+
+[Donate via Boosty](https://boosty.to/matveevd/donate)
+
+![QR code for supporting the plugin](images/donate.png)
+
+## License
+
+Copyright © 2026 Dmitry Matveev.
+
+Licensed under the [GNU General Public License v3.0 or later](LICENSE).

@@ -243,3 +243,19 @@ msgstr "Метафора отклонила операцию с подписью
 
 msgid "plugins.importexport.metafora.signature.confirm"
 msgstr "Подтвердить выполнение операции с подписью в Метафоре?"
+
+
+msgid "plugins.importexport.metafora.support.title"
+msgstr "Поддержать плагин"
+
+msgid "plugins.importexport.metafora.support.text"
+msgstr "Если плагин оказался полезен, вы можете поддержать его дальнейшую разработку."
+
+msgid "plugins.importexport.metafora.support.donate"
+msgstr "Поддержать через Boosty"
+
+msgid "plugins.importexport.metafora.support.qrAlt"
+msgstr "QR-код для поддержки разработки плагина"
+
+msgid "plugins.importexport.metafora.author"
+msgstr "Автор плагина"

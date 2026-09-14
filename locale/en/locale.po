@@ -243,3 +243,19 @@ msgstr "Metafora rejected the signature operation."
 
 msgid "plugins.importexport.metafora.signature.confirm"
 msgstr "Confirm this signature operation in Metafora?"
+
+
+msgid "plugins.importexport.metafora.support.title"
+msgstr "Support the plugin"
+
+msgid "plugins.importexport.metafora.support.text"
+msgstr "If the plugin is useful, you can support its continued development."
+
+msgid "plugins.importexport.metafora.support.donate"
+msgstr "Donate via Boosty"
+
+msgid "plugins.importexport.metafora.support.qrAlt"
+msgstr "QR code for supporting the plugin"
+
+msgid "plugins.importexport.metafora.author"
+msgstr "Plugin author"

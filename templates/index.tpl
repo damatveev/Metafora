@@ -348,5 +348,22 @@
 			</form>
 		</div>
 	</div>
+	<section class="metaforaSupport" aria-labelledby="metaforaSupportTitle">
+		<div class="metaforaSupport__content">
+			<h2 id="metaforaSupportTitle">{translate key="plugins.importexport.metafora.support.title"}</h2>
+			<p>{translate key="plugins.importexport.metafora.support.text"}</p>
+			<p class="metaforaSupport__author">
+				<strong>{translate key="plugins.importexport.metafora.author"}:</strong>
+				Dmitry Matveev · <a href="mailto:d.a.matveev@gmail.com">d.a.matveev@gmail.com</a>
+			</p>
+			<a class="pkp_button metaforaSupport__button" href="https://boosty.to/matveevd/donate" target="_blank" rel="noopener noreferrer">
+				{translate key="plugins.importexport.metafora.support.donate"}
+			</a>
+		</div>
+		<a class="metaforaSupport__qr" href="https://boosty.to/matveevd/donate" target="_blank" rel="noopener noreferrer">
+			<img src="{$baseUrl}/plugins/importexport/metafora/images/donate.png" width="150" height="150" alt="{translate key="plugins.importexport.metafora.support.qrAlt"}">
+		</a>
+	</section>
+
 	</div>
 {/block}

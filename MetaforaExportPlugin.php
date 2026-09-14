@@ -9,6 +9,7 @@ use APP\plugins\importexport\metafora\classes\export\ExportManager;
 use APP\plugins\importexport\metafora\classes\export\IssueArticleManager;
 use APP\plugins\importexport\metafora\classes\form\MetaforaSettingsForm;
 use APP\plugins\importexport\metafora\classes\history\ExportHistoryRepository;
+use APP\plugins\importexport\metafora\classes\history\RemoteStateRepository;
 use APP\template\TemplateManager;
 use PKP\config\Config;
 use PKP\context\Context;
@@ -73,14 +74,30 @@ class MetaforaExportPlugin extends ImportExportPlugin
         if (!$context) {
             throw new NotFoundHttpException();
         }
+
+        $operation = array_shift($args) ?: 'index';
+        if (in_array($operation, [
+            'syncSubmission',
+            'syncSubmissions',
+            'syncIssue',
+            'syncIssues',
+            'replaceSubmission',
+            'signSubmission',
+            'unsignSubmission',
+        ], true)) {
+            $this->handleRemoteAction($operation, $request, $context);
+            return;
+        }
+
         $history = $this->history();
         $history->ensureTable();
+        $this->remoteState()->ensureTable();
         $legacyHistory = json_decode((string) $this->getSetting($context->getId(), 'exportHistory'), true);
         if (is_array($legacyHistory) && $legacyHistory !== []) {
             $history->importLegacy($context->getId(), $legacyHistory);
         }
 
-        switch (array_shift($args) ?: 'index') {
+        switch ($operation) {
             case 'index':
                 $templateMgr = TemplateManager::getManager($request);
                 $apiUrl = $request->getDispatcher()->url(
@@ -95,7 +112,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     __('common.publications'),
                     [
                         'apiUrl' => $apiUrl,
-                        'count' => 100,
+                        'count' => 25,
                         'getParams' => [
                             'status' => STATUS_PUBLISHED,
                             'orderBy' => 'datePublished',
@@ -110,6 +127,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $submissionsConfig['addUrl'] = '';
                 $submissionsConfig['filters'] = array_slice($submissionsConfig['filters'], 1);
                 $submissionsConfig['metaforaStatuses'] = $this->getSubmissionStatuses($context);
+                $submissionsConfig['metaforaRemote'] = $this->getSubmissionRemoteStates($context);
                 $submissionsConfig['metaforaMetadata'] = $this->getSubmissionMetadata($context);
                 $submissionsConfig['metaforaLabels'] = [
                     'notSent' => __('plugins.importexport.metafora.table.notSent'),
@@ -130,6 +148,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 $templateMgr->assign([
                     'pageTitle' => $this->getDisplayName(),
                     'pageComponent' => 'ImportExportPage',
+                    'pageWidth' => 'full',
                     'metaforaSettingsTemplate' => $this->getTemplateResource('settingsForm.tpl'),
                     'apiUrl' => $settingsForm->getData('apiUrl'),
                     'apiToken' => $settingsForm->getData('apiToken'),
@@ -180,9 +199,120 @@ class MetaforaExportPlugin extends ImportExportPlugin
                 }
                 $this->deliverDocuments($documents, $context, $error, $validationErrors);
                 return;
-
             default:
                 throw new NotFoundHttpException();
+        }
+    }
+
+    /** Return JSON for all remote actions, including routing and PHP errors. */
+    private function handleRemoteAction(string $operation, $request, Context $context): void
+    {
+        try {
+            if (!$request->isPost()) {
+                $this->outputJson([
+                    'success' => false,
+                    'httpStatus' => 405,
+                    'message' => __('plugins.importexport.metafora.ajax.method'),
+                ], 405);
+                return;
+            }
+            if (!$request->checkCSRF()) {
+                $this->outputJson([
+                    'success' => false,
+                    'httpStatus' => 403,
+                    'message' => __('plugins.importexport.metafora.ajax.csrf'),
+                ], 403);
+                return;
+            }
+
+            $this->history()->ensureTable();
+            $this->remoteState()->ensureTable();
+
+            if ($operation === 'syncSubmission') {
+                $this->outputJson($this->syncSubmissionRemoteState(
+                    (int)$request->getUserVar('submissionId'),
+                    $context
+                ));
+                return;
+            }
+
+            if ($operation === 'syncSubmissions') {
+                $submissionIds = $this->normalizeIds((array)$request->getUserVar('selectedSubmissions'));
+                if ($submissionIds === []) {
+                    $this->outputJson([
+                        'success' => false,
+                        'message' => __('plugins.importexport.metafora.error.noSubmissionsSelected'),
+                    ]);
+                    return;
+                }
+
+                $items = [];
+                foreach ($submissionIds as $submissionId) {
+                    $items[] = $this->syncSubmissionRemoteState($submissionId, $context);
+                }
+                $this->outputJson([
+                    'success' => count(array_filter(
+                        $items,
+                        static fn(array $item): bool => !empty($item['success'])
+                    )) > 0,
+                    'items' => $items,
+                ]);
+                return;
+            }
+
+            if ($operation === 'syncIssue') {
+                $this->outputJson($this->syncIssueRemoteState(
+                    (int)$request->getUserVar('issueId'),
+                    $context
+                ));
+                return;
+            }
+
+            if ($operation === 'syncIssues') {
+                $issueIds = $this->normalizeIds((array)$request->getUserVar('selectedIssues'));
+                if ($issueIds === []) {
+                    $this->outputJson([
+                        'success' => false,
+                        'message' => __('plugins.importexport.metafora.error.noIssuesSelected'),
+                    ]);
+                    return;
+                }
+
+                @set_time_limit(0);
+                $issues = [];
+                foreach ($issueIds as $issueId) {
+                    $issues[] = $this->syncIssueRemoteState($issueId, $context);
+                }
+                $this->outputJson([
+                    'success' => count(array_filter(
+                        $issues,
+                        static fn(array $issue): bool => !empty($issue['success'])
+                    )) > 0,
+                    'issues' => $issues,
+                ]);
+                return;
+            }
+
+            if ($operation === 'replaceSubmission') {
+                $this->outputJson($this->replaceDeletedSubmission(
+                    (int)$request->getUserVar('submissionId'),
+                    $context
+                ));
+                return;
+            }
+
+            $this->outputJson($this->changePublicationSignature(
+                (int)$request->getUserVar('submissionId'),
+                $context,
+                $operation === 'signSubmission'
+            ));
+        } catch (Throwable $exception) {
+            error_log('[Metafora AJAX] ' . $operation . ': ' . $exception->getMessage());
+            $this->outputJson([
+                'success' => false,
+                'httpStatus' => 500,
+                'message' => $exception->getMessage(),
+            ], 500);
         }
     }
 
@@ -276,13 +406,59 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     $status = (int) ($response['status'] ?? 0);
                     $responsePayload = $response['json'] ?? $response['body'] ?? null;
                     $success = $status >= 200 && $status < 300;
+                    $duplicateFileUid = $this->duplicateFileUid($status, $responsePayload);
+                    $duplicateState = null;
+
+                    if (!$success && $duplicateFileUid !== '') {
+                        $remoteRepository = $this->remoteState();
+                        $existingRemote = $remoteRepository->get(
+                            (int)$submissionId,
+                            $context->getId()
+                        ) ?? [];
+                        $remoteRepository->save(
+                            (int)$submissionId,
+                            $context->getId(),
+                            $duplicateFileUid,
+                            $existingRemote['articleUid'] ?? null,
+                            $existingRemote['remoteStatus'] ?? 'duplicate',
+                            $existingRemote['signatureStatus'] ?? null,
+                            $existingRemote['remoteExists'] ?? null,
+                            $status,
+                            $responsePayload,
+                            null,
+                            false
+                        );
+                        $duplicateState = $this->syncSubmissionRemoteState(
+                            (int)$submissionId,
+                            $context
+                        );
+                        $success = ($duplicateState['publicationExists'] ?? null) === true;
+                    }
+
+                    $historyError = !$success && $duplicateFileUid !== ''
+                        ? __('plugins.importexport.metafora.restore.required')
+                        : null;
 
                     $history->finish(
                         $historyId,
                         $success,
                         $status,
-                        $responsePayload
+                        $responsePayload,
+                        $historyError
                     );
+
+                    if ($success && $duplicateFileUid === '') {
+                        $fileUid = $this->stringValue(
+                            $this->findRecursiveValue($responsePayload, ['file_uid'])
+                        );
+                        $this->remoteState()->rememberUpload(
+                            (int) $submissionId,
+                            $context->getId(),
+                            $fileUid !== '' ? $fileUid : null,
+                            $status,
+                            $responsePayload
+                        );
+                    }
 
                     $items[] = [
                         'submissionId' => (int) $submissionId,
@@ -290,6 +466,11 @@ class MetaforaExportPlugin extends ImportExportPlugin
                         'httpStatus' => $status,
                         'pdfIncluded' => $pdfPath !== null,
                         'response' => $responsePayload,
+                        'message' => $historyError,
+                        'canRestore' => !$success
+                            && $duplicateFileUid !== ''
+                            && ($duplicateState['remoteExists'] ?? null) === false,
+                        'fileUid' => $duplicateFileUid !== '' ? $duplicateFileUid : null,
                     ];
                 } catch (Throwable $exception) {
                     $history->finish($historyId, false, 0, null, $exception->getMessage());
@@ -430,7 +611,39 @@ class MetaforaExportPlugin extends ImportExportPlugin
 
     private function getSubmissionStatuses(Context $context): array
     {
-        return $this->history()->getLatestForJournal($context->getId());
+        $statuses = $this->history()->getLatestForJournal($context->getId());
+        foreach ($this->remoteState()->getForJournal($context->getId()) as $submissionId => $remote) {
+            if (!isset($statuses[$submissionId])) {
+                $statuses[$submissionId] = [
+                    'submissionId' => (int) $submissionId,
+                    'exportType' => null,
+                    'status' => 'not_sent',
+                    'success' => false,
+                    'httpStatus' => null,
+                    'message' => null,
+                    'response' => null,
+                    'createdAt' => null,
+                    'updatedAt' => $remote['updatedAt'] ?? null,
+                ];
+            }
+
+            $statuses[$submissionId]['remote'] = $remote;
+            $statuses[$submissionId]['effectiveStatus'] = match ($remote['remoteExists'] ?? null) {
+                true => 'success',
+                false => 'not_sent',
+                default => $statuses[$submissionId]['status'],
+            };
+            $statuses[$submissionId]['updatedAt'] = $remote['updatedAt']
+                ?? $statuses[$submissionId]['updatedAt']
+                ?? null;
+        }
+
+        return $statuses;
+    }
+
+    private function getSubmissionRemoteStates(Context $context): array
+    {
+        return $this->remoteState()->getForJournal($context->getId());
     }
 
     private function deliverDocuments(
@@ -489,13 +702,500 @@ class MetaforaExportPlugin extends ImportExportPlugin
         return new ExportHistoryRepository();
     }
 
+    private function remoteState(): RemoteStateRepository
+    {
+        return new RemoteStateRepository();
+    }
+
+    private function syncSubmissionRemoteState(int $submissionId, Context $context): array
+    {
+        $submission = Repo::submission()->get($submissionId);
+        if (
+            !$submission
+            || (int) $submission->getData('contextId') !== $context->getId()
+            || (int) $submission->getData('status') !== STATUS_PUBLISHED
+        ) {
+            return [
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.sync.submissionNotFound'),
+            ];
+        }
+
+        $publication = $submission->getCurrentPublication();
+        $doi = trim((string) ($publication?->getDoi() ?? ''));
+        $repository = $this->remoteState();
+        $existing = $repository->get($submissionId, $context->getId()) ?? [];
+        $fileUid = trim((string) ($existing['fileUid'] ?? ''));
+        $articleUid = trim((string) ($existing['articleUid'] ?? ''));
+        $signatureStatus = $existing['signatureStatus'] ?? null;
+
+        try {
+            $client = $this->getApiClient($context);
+            $fileFound = null;
+            $publicationFound = null;
+            $remoteStatus = null;
+            $lastStatus = 0;
+            $responses = [];
+            $errors = [];
+
+            if ($doi !== '') {
+                $doiResponse = $client->getPublicationByDoi($doi);
+                $doiStatus = (int) ($doiResponse['status'] ?? 0);
+                $doiPayload = $doiResponse['json'] ?? $doiResponse['body'] ?? null;
+                $responses['publicationByDoi'] = $doiPayload;
+                $lastStatus = $doiStatus;
+
+                if ($doiStatus >= 200 && $doiStatus < 300) {
+                    if (!is_array($doiResponse['json'] ?? null)) {
+                        $errors[] = __('plugins.importexport.metafora.ajax.invalidJson');
+                    } else {
+                        $publicationFound = true;
+                        $doiData = $this->metaforaData($doiPayload);
+                        $articleUidFromDoi = $this->stringValue($doiData['article_uid'] ?? null);
+                        $fileUidFromDoi = $this->stringValue($doiData['file_uid'] ?? null);
+                        if ($articleUidFromDoi !== '') {
+                            $articleUid = $articleUidFromDoi;
+                        }
+                        if ($fileUidFromDoi !== '') {
+                            $fileUid = $fileUidFromDoi;
+                        }
+                        $signatureStatus = $this->signatureStatusFromPayload($doiPayload);
+                        $remoteStatus = 'published';
+                    }
+                } elseif ($doiStatus === 404) {
+                    $publicationFound = false;
+                    $articleUid = '';
+                    $signatureStatus = null;
+                    $remoteStatus = 'missing';
+                } else {
+                    $errors[] = $this->apiError($doiStatus, $doiPayload);
+                }
+            }
+
+            // DOI lookup may recover file_uid for legacy rows. Querying file
+            // status afterwards keeps processing state and article UID current.
+            if ($fileUid !== '') {
+                $fileResponse = $client->checkStatus($fileUid);
+                $fileStatus = (int) ($fileResponse['status'] ?? 0);
+                $filePayload = $fileResponse['json'] ?? $fileResponse['body'] ?? null;
+                $responses['fileStatus'] = $filePayload;
+                $lastStatus = $fileStatus;
+
+                if ($fileStatus >= 200 && $fileStatus < 300) {
+                    if (!is_array($fileResponse['json'] ?? null)) {
+                        $errors[] = __('plugins.importexport.metafora.ajax.invalidJson');
+                    } else {
+                        $fileFound = true;
+                        $fileData = $this->metaforaData($filePayload);
+                        $articles = $fileData['articles'] ?? [];
+                        if ($articleUid === '' && is_array($articles)) {
+                            $articleUid = $this->stringValue($articles[0] ?? null);
+                        }
+                        $statusText = $this->stringValue(
+                            $fileData['xml']['status']['status_text'] ?? null
+                        );
+                        if ($publicationFound !== false && $statusText !== '') {
+                            $remoteStatus = $statusText;
+                        }
+                    }
+                } elseif ($fileStatus === 404) {
+                    $fileFound = false;
+                } else {
+                    $errors[] = $this->apiError($fileStatus, $filePayload);
+                }
+            }
+
+            if ($doi === '' && $fileUid === '') {
+                $errors[] = __('plugins.importexport.metafora.sync.noIdentifier');
+            }
+
+            // A DOI 404 is authoritative for deleted publications. File state
+            // is used only when a publication cannot be looked up by DOI.
+            $remoteExists = $doi !== ''
+                ? ($publicationFound ?? ($existing['remoteExists'] ?? null))
+                : $fileFound;
+            if ($remoteStatus === null) {
+                $remoteStatus = match ($remoteExists) {
+                    true => 'published',
+                    false => 'missing',
+                    default => 'unknown',
+                };
+            }
+            $error = $errors === [] ? null : implode('; ', array_unique($errors));
+
+            $repository->save(
+                $submissionId,
+                $context->getId(),
+                $fileUid !== '' ? $fileUid : null,
+                $articleUid !== '' ? $articleUid : null,
+                $remoteStatus,
+                $signatureStatus,
+                $remoteExists,
+                $lastStatus,
+                $responses,
+                $error,
+                true
+            );
+
+            return array_merge(
+                [
+                    'submissionId' => $submissionId,
+                    'success' => $error === null,
+                    'publicationExists' => $publicationFound,
+                    'fileExists' => $fileFound,
+                ],
+                $repository->get($submissionId, $context->getId()) ?? []
+            );
+        } catch (Throwable $exception) {
+            $repository->save(
+                $submissionId,
+                $context->getId(),
+                $fileUid !== '' ? $fileUid : null,
+                $articleUid !== '' ? $articleUid : null,
+                $existing['remoteStatus'] ?? 'unknown',
+                $signatureStatus,
+                $existing['remoteExists'] ?? null,
+                0,
+                null,
+                $exception->getMessage(),
+                true
+            );
+
+            return array_merge(
+                ['submissionId' => $submissionId, 'success' => false],
+                $repository->get($submissionId, $context->getId()) ?? [],
+                ['message' => $exception->getMessage()]
+            );
+        }
+    }
+
+    private function syncIssueRemoteState(int $issueId, Context $context): array
+    {
+        $issue = Repo::issue()->get($issueId);
+        if (!$issue || (int)$issue->getJournalId() !== $context->getId()) {
+            return [
+                'issueId' => $issueId,
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.sync.issueNotFound'),
+                'items' => [],
+            ];
+        }
+
+        @set_time_limit(0);
+        $items = [];
+        foreach ((new IssueArticleManager())->getArticles($issueId, $context) as $article) {
+            $items[] = $this->syncSubmissionRemoteState((int)$article['submissionId'], $context);
+        }
+
+        $successful = count(array_filter(
+            $items,
+            static fn(array $item): bool => !empty($item['success'])
+        ));
+
+        return [
+            'issueId' => $issueId,
+            'success' => $items !== [] && $successful === count($items),
+            'successful' => $successful,
+            'failed' => count($items) - $successful,
+            'items' => $items,
+            'message' => $items === []
+                ? __('plugins.importexport.metafora.error.noPublishedArticles')
+                : null,
+        ];
+    }
+
+    /**
+     * Explicitly replace a stale processed JATS file after its publication was
+     * deleted in Metafora. The UI requires confirmation before this operation.
+     */
+    private function replaceDeletedSubmission(int $submissionId, Context $context): array
+    {
+        $state = $this->syncSubmissionRemoteState($submissionId, $context);
+        $fileUid = trim((string)($state['fileUid'] ?? ''));
+        if (empty($state['success'])) {
+            return [
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => (string)($state['message']
+                    ?? __('plugins.importexport.metafora.sync.error')),
+            ];
+        }
+        if (($state['remoteExists'] ?? null) !== false || $fileUid === '') {
+            return [
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.restore.notRequired'),
+            ];
+        }
+
+        [$documents, $validationErrors] = $this->buildDocuments([$submissionId], $context);
+        if ($validationErrors !== [] || !isset($documents[$submissionId])) {
+            return array_merge([
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.restore.buildFailed'),
+            ], $validationErrors[0] ?? []);
+        }
+
+        $includePdf = (bool)$this->getSetting($context->getId(), 'includePdf');
+        $pdfPath = $includePdf ? $this->getPdfPath($submissionId, $context) : null;
+        if ($includePdf && $pdfPath === null) {
+            return [
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.error.pdfRequired'),
+            ];
+        }
+
+        $xml = (string)$documents[$submissionId];
+        $xmlPath = tempnam($this->getExportPath(), 'metafora-restore-');
+        if ($xmlPath === false) {
+            throw new \RuntimeException('Unable to create a temporary JATS file.');
+        }
+
+        $history = $this->history();
+        $historyId = $history->start(
+            $submissionId,
+            $context->getId(),
+            $includePdf ? 'xml_pdf' : 'xml',
+            $xml
+        );
+
+        try {
+            if (file_put_contents($xmlPath, $xml) === false) {
+                throw new \RuntimeException('Unable to write a temporary JATS file.');
+            }
+
+            $client = $this->getApiClient($context);
+            $deleteResponse = $client->deleteFile($fileUid);
+            $deleteStatus = (int)($deleteResponse['status'] ?? 0);
+            $deletePayload = $deleteResponse['json'] ?? $deleteResponse['body'] ?? null;
+            if ($deleteStatus !== 204 && $deleteStatus !== 404) {
+                $message = $this->apiError($deleteStatus, $deletePayload);
+                $history->finish($historyId, false, $deleteStatus, $deletePayload, $message);
+                return [
+                    'submissionId' => $submissionId,
+                    'success' => false,
+                    'httpStatus' => $deleteStatus,
+                    'message' => $message,
+                ];
+            }
+
+            $this->remoteState()->save(
+                $submissionId,
+                $context->getId(),
+                null,
+                null,
+                'missing',
+                null,
+                false,
+                $deleteStatus,
+                $deletePayload,
+                null,
+                true
+            );
+
+            $uploadResponse = $pdfPath
+                ? $client->sendJatsXmlPdf($xmlPath, $pdfPath)
+                : $client->sendJatsXml($xmlPath);
+            $uploadStatus = (int)($uploadResponse['status'] ?? 0);
+            $uploadPayload = $uploadResponse['json'] ?? $uploadResponse['body'] ?? null;
+            $success = $uploadStatus >= 200 && $uploadStatus < 300;
+            $history->finish($historyId, $success, $uploadStatus, $uploadPayload);
+
+            if ($success) {
+                $newFileUid = $this->stringValue(
+                    $this->findRecursiveValue($uploadPayload, ['file_uid'])
+                );
+                $this->remoteState()->rememberUpload(
+                    $submissionId,
+                    $context->getId(),
+                    $newFileUid !== '' ? $newFileUid : null,
+                    $uploadStatus,
+                    $uploadPayload
+                );
+            }
+
+            return [
+                'submissionId' => $submissionId,
+                'success' => $success,
+                'httpStatus' => $uploadStatus,
+                'response' => $uploadPayload,
+                'message' => $success
+                    ? __('plugins.importexport.metafora.restore.started')
+                    : $this->apiError($uploadStatus, $uploadPayload),
+            ];
+        } catch (Throwable $exception) {
+            $history->finish($historyId, false, 0, null, $exception->getMessage());
+            return [
+                'submissionId' => $submissionId,
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ];
+        } finally {
+            if (is_file($xmlPath)) {
+                unlink($xmlPath);
+            }
+        }
+    }
+
+    private function changePublicationSignature(
+        int $submissionId,
+        Context $context,
+        bool $sign
+    ): array {
+        $state = $this->syncSubmissionRemoteState($submissionId, $context);
+        $articleUid = trim((string) ($state['articleUid'] ?? ''));
+        $signatureStatus = $state['signatureStatus'] ?? null;
+
+        if ($articleUid === '' || ($state['remoteExists'] ?? null) !== true) {
+            return array_merge($state, [
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.signature.noArticleUid'),
+            ]);
+        }
+        if (($sign && $signatureStatus !== 'unsigned') || (!$sign && $signatureStatus !== 'signed')) {
+            return array_merge($state, [
+                'success' => false,
+                'message' => __('plugins.importexport.metafora.signature.invalidState'),
+            ]);
+        }
+
+        try {
+            $client = $this->getApiClient($context);
+            $response = $sign
+                ? $client->signPublication($articleUid)
+                : $client->unsignPublication($articleUid);
+            $status = (int) ($response['status'] ?? 0);
+            $payload = $response['json'] ?? $response['body'] ?? null;
+            $success = $status >= 200 && $status < 300;
+            $operationError = $success
+                ? null
+                : ($this->responseMessage($payload)
+                    ?: __('plugins.importexport.metafora.signature.error'));
+
+            // Never trust an optimistic local signature value. Always repeat
+            // the read-only synchronization after sign/unsign.
+            $synced = $this->syncSubmissionRemoteState($submissionId, $context);
+            return array_merge($synced, [
+                'success' => $success && !empty($synced['success']),
+                'operationHttpStatus' => $status,
+                'operationResponse' => $payload,
+                'message' => $operationError ?? ($synced['message'] ?? null),
+            ]);
+        } catch (Throwable $exception) {
+            $synced = $this->syncSubmissionRemoteState($submissionId, $context);
+            return array_merge($synced, [
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function findRecursiveValue(mixed $data, array $keys): mixed
+    {
+        if (!is_array($data)) {
+            return null;
+        }
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $data) && $data[$key] !== null && $data[$key] !== '') {
+                return $data[$key];
+            }
+        }
+
+        foreach ($data as $value) {
+            if (is_array($value)) {
+                $found = $this->findRecursiveValue($value, $keys);
+                if ($found !== null && $found !== '') {
+                    return $found;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function signatureStatusFromPayload(mixed $payload): ?string
+    {
+        $data = $this->metaforaData($payload);
+        if (!array_key_exists('signed_at', $data)) {
+            return null;
+        }
+
+        return $data['signed_at'] === null || trim((string)$data['signed_at']) === ''
+            ? 'unsigned'
+            : 'signed';
+    }
+
+    private function metaforaData(mixed $payload): array
+    {
+        return is_array($payload) && is_array($payload['data'] ?? null)
+            ? $payload['data']
+            : [];
+    }
+
+    private function apiError(int $status, mixed $payload): string
+    {
+        $message = $this->responseMessage($payload)
+            ?: __('plugins.importexport.metafora.sync.error');
+        return 'HTTP ' . $status . ': ' . $message;
+    }
+
+    private function duplicateFileUid(int $status, mixed $payload): string
+    {
+        if ($status !== 409) {
+            return '';
+        }
+        $error = strtoupper($this->stringValue(
+            $this->findRecursiveValue($payload, ['error'])
+        ));
+        if ($error !== 'XML_ALREADY_EXISTS') {
+            return '';
+        }
+
+        return $this->stringValue(
+            $this->findRecursiveValue($payload, ['exists_file_uid'])
+        );
+    }
+
+    private function responseMessage(mixed $payload): ?string
+    {
+        $value = $this->findRecursiveValue($payload, ['message', 'detail', 'error']);
+        $message = $this->stringValue($value);
+        return $message !== '' ? $message : null;
+    }
+
+    private function stringValue(mixed $value): string
+    {
+        if (is_string($value) || is_numeric($value)) {
+            return trim((string) $value);
+        }
+        return '';
+    }
+
+    private function outputJson(array $data, int $httpStatus = 200): void
+    {
+        http_response_code($httpStatus);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(
+            $data,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        );
+    }
+
+
     private function getSubmissionMetadata(Context $context): array
     {
         $result = [];
         $submissions = Repo::submission()->getCollector()
             ->filterByContextIds([$context->getId()])
             ->filterByStatus([STATUS_PUBLISHED])
+            ->orderBy('datePublished', 'DESC')
+            ->limit(100)
             ->getMany();
+        $issueLabels = [];
         foreach ($submissions as $submission) {
             $publication = $submission->getCurrentPublication();
             if (!$publication) {
@@ -504,14 +1204,17 @@ class MetaforaExportPlugin extends ImportExportPlugin
             $issue = null;
             $issueId = (int) $publication->getData('issueId');
             if ($issueId) {
-                $issueObject = Repo::issue()->get($issueId);
-                if ($issueObject) {
-                    $issue = trim(implode(' ', array_filter([
-                        $issueObject->getData('year'),
-                        $issueObject->getData('volume') ? 'Т. ' . $issueObject->getData('volume') : null,
-                        $issueObject->getData('number') ? '№ ' . $issueObject->getData('number') : null,
-                    ])));
+                if (!array_key_exists($issueId, $issueLabels)) {
+                    $issueObject = Repo::issue()->get($issueId);
+                    $issueLabels[$issueId] = $issueObject
+                        ? trim(implode(' ', array_filter([
+                            $issueObject->getData('year'),
+                            $issueObject->getData('volume') ? 'Т. ' . $issueObject->getData('volume') : null,
+                            $issueObject->getData('number') ? '№ ' . $issueObject->getData('number') : null,
+                        ])))
+                        : null;
                 }
+                $issue = $issueLabels[$issueId];
             }
             $authors = [];
             $authorCollection = $publication->getData('authors');
@@ -533,26 +1236,54 @@ class MetaforaExportPlugin extends ImportExportPlugin
     {
         $result = [];
         $statuses = $this->getSubmissionStatuses($context);
-        foreach (Repo::issue()->getCollector()->filterByContextIds([$context->getId()])->getMany() as $issue) {
-            $articles = (new IssueArticleManager())->getArticles($issue->getId(), $context);
-            $articleStatuses = array_values(array_filter(array_map(
-                static fn (array $article) => $statuses[$article['submissionId']] ?? null,
-                $articles
-            )));
-            $status = 'not_sent';
-            if (array_filter($articleStatuses, static fn (array $item) => $item['status'] === 'failed')) {
-                $status = 'failed';
-            } elseif (array_filter($articleStatuses, static fn (array $item) => $item['status'] === 'sending')) {
-                $status = 'sending';
-            } elseif ($articles && count($articleStatuses) === count($articles)) {
-                $status = 'success';
+        $articlesByIssue = [];
+        $submissions = Repo::submission()->getCollector()
+            ->filterByContextIds([$context->getId()])
+            ->filterByStatus([STATUS_PUBLISHED])
+            ->getMany();
+        foreach ($submissions as $submission) {
+            $publication = $submission->getCurrentPublication();
+            $issueId = (int)($publication?->getData('issueId') ?? 0);
+            if ($issueId <= 0) {
+                continue;
             }
-            $error = '—';
-            foreach ($articleStatuses as $item) {
-                if ($item['status'] === 'failed' && !empty($item['message'])) {
-                    $error = $item['message'];
-                    break;
+            $articlesByIssue[$issueId][] = [
+                'submissionId' => $submission->getId(),
+                'title' => $publication?->getData('title') ?? [],
+            ];
+        }
+
+        foreach (Repo::issue()->getCollector()->filterByContextIds([$context->getId()])->getMany() as $issue) {
+            $articles = $articlesByIssue[$issue->getId()] ?? [];
+            $articleStatuses = [];
+            $problems = [];
+            foreach ($articles as $article) {
+                $submissionId = (int)$article['submissionId'];
+                $item = $statuses[$submissionId] ?? null;
+                $effectiveStatus = $item['effectiveStatus'] ?? $item['status'] ?? 'not_sent';
+                $articleStatuses[] = $effectiveStatus;
+                if ($effectiveStatus !== 'success') {
+                    $problems[] = [
+                        'submissionId' => $submissionId,
+                        'title' => $this->localizedValue($article['title'] ?? [])
+                            ?: ('#' . $submissionId),
+                        'status' => $effectiveStatus,
+                        'statusLabel' => __('plugins.importexport.metafora.table.' . (
+                            $effectiveStatus === 'not_sent' ? 'notSent' : $effectiveStatus
+                        )),
+                        'error' => $effectiveStatus === 'failed'
+                            ? (string)($item['message'] ?? '')
+                            : '',
+                    ];
                 }
+            }
+            $status = 'not_sent';
+            if (in_array('failed', $articleStatuses, true)) {
+                $status = 'failed';
+            } elseif (in_array('sending', $articleStatuses, true)) {
+                $status = 'sending';
+            } elseif ($articles && $problems === []) {
+                $status = 'success';
             }
             $label = trim(implode(' ', array_filter([
                 $issue->getData('year'),
@@ -561,7 +1292,7 @@ class MetaforaExportPlugin extends ImportExportPlugin
             ])));
             $result[] = [
                 'id' => $issue->getId(), 'label' => $label ?: (string) $issue->getId(),
-                'articleCount' => count($articles), 'status' => $status, 'error' => $error,
+                'articleCount' => count($articles), 'status' => $status, 'problems' => $problems,
                 'statusLabel' => __('plugins.importexport.metafora.table.' . ($status === 'success' ? 'sent' : ($status === 'not_sent' ? 'notSent' : $status))),
                 'url' => $request->getDispatcher()->url($request, PKPApplication::ROUTE_PAGE, $context->getPath(), 'issue', 'view', [$issue->getId()]),
             ];
@@ -778,6 +1509,79 @@ class MetaforaExportPlugin extends ImportExportPlugin
                     return;
 
 
+                case 'diagnose-remote':
+
+                    $submissionId = (int)($args[2] ?? 0);
+                    if ($submissionId <= 0) {
+                        throw new \InvalidArgumentException('Submission ID is required.');
+                    }
+
+                    $submission = Repo::submission()->get($submissionId);
+                    if (
+                        !$submission
+                        || (int)$submission->getData('contextId') !== $context->getId()
+                    ) {
+                        throw new \RuntimeException("Submission {$submissionId} was not found in this journal.");
+                    }
+
+                    $publication = $submission->getCurrentPublication();
+                    $doi = trim((string)($publication?->getDoi() ?? ''));
+                    $remoteRepository = new RemoteStateRepository();
+                    $remoteRepository->ensureTable();
+                    $remote = $remoteRepository->get($submissionId, $context->getId()) ?? [];
+                    $fileUid = trim((string)($args[3] ?? ($remote['fileUid'] ?? '')));
+
+                    if ($fileUid === '') {
+                        $historyItem = $this->history()->getLatestForJournal($context->getId())[$submissionId] ?? [];
+                        $fileUid = $this->stringValue(
+                            $this->findRecursiveValue($historyItem['response'] ?? null, ['file_uid'])
+                        );
+                    }
+
+                    $client = $this->getApiClient($context);
+                    if ($doi !== '') {
+                        $result = $client->getPublicationByDoi($doi);
+                        echo json_encode([
+                            'endpoint' => 'GET /publications/doi/{doi}',
+                            'doi' => $doi,
+                            'httpStatus' => $result['status'] ?? 0,
+                            'response' => $result['json'] ?? $result['body'] ?? null,
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+                    } else {
+                        echo "GET /publications/doi/{doi}: skipped; submission has no DOI\n";
+                    }
+
+                    if ($fileUid !== '') {
+                        $result = $client->checkStatus($fileUid);
+                        echo json_encode([
+                            'endpoint' => 'GET /files/status/?file_uid=...',
+                            'file_uid' => $fileUid,
+                            'httpStatus' => $result['status'] ?? 0,
+                            'response' => $result['json'] ?? $result['body'] ?? null,
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n";
+                    } else {
+                        echo "GET /files/status/?file_uid=...: skipped; file_uid is not known locally\n";
+                    }
+
+                    return;
+
+
+                case 'sync-remote':
+
+                    $submissionId = (int)($args[2] ?? 0);
+                    if ($submissionId <= 0) {
+                        throw new \InvalidArgumentException('Submission ID is required.');
+                    }
+
+                    $this->history()->ensureTable();
+                    $this->remoteState()->ensureTable();
+                    echo json_encode(
+                        $this->syncSubmissionRemoteState($submissionId, $context),
+                        JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                    ) . "\n";
+                    return;
+
+
                 default:
 
                     echo "Unknown command: {$command}\n";
@@ -806,6 +1610,8 @@ class MetaforaExportPlugin extends ImportExportPlugin
         echo "  php tools/importExport.php MetaforaExportPlugin export-jats-issue <journal> <issueId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin inspect-article <journal> <submissionId>\n";
         echo "  php tools/importExport.php MetaforaExportPlugin test-connection <journal>\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin diagnose-remote <journal> <submissionId> [fileUid]\n";
+        echo "  php tools/importExport.php MetaforaExportPlugin sync-remote <journal> <submissionId>\n";
     }
 
 

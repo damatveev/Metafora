@@ -23,6 +23,9 @@ class MetaforaApiClient
     public const ENDPOINT_JOURNAL_XML = 'files/journal/';
     public const ENDPOINT_PDF = 'files/pdf/';
     public const ENDPOINT_STATUS = 'files/status/';
+    public const ENDPOINT_FILES = 'files/';
+    public const ENDPOINT_PUBLICATION_BY_DOI = 'publications/doi/';
+    public const ENDPOINT_PUBLICATIONS = 'publications/';
 
     private Client $client;
     private string $apiUrl;
@@ -76,12 +79,50 @@ class MetaforaApiClient
             $decoded = json_decode($body, true);
         }
 
+        $this->logDiagnosticResponse(
+            strtoupper($method),
+            $endpoint,
+            $response->getStatusCode(),
+            $body
+        );
+
         return [
             'status' => $response->getStatusCode(),
             'headers' => $response->getHeaders(),
             'body' => $body,
             'json' => is_array($decoded) ? $decoded : null,
         ];
+    }
+
+    /**
+     * Log only the two read-only synchronization responses requested for
+     * diagnostics. Request headers are deliberately excluded so the Api-Key
+     * can never be written to the log.
+     */
+    private function logDiagnosticResponse(
+        string $method,
+        string $endpoint,
+        int $status,
+        string $body
+    ): void {
+        if ($method !== 'GET') {
+            return;
+        }
+
+        $path = ltrim($endpoint, '/');
+        if (
+            !str_starts_with($path, self::ENDPOINT_STATUS)
+            && !str_starts_with($path, self::ENDPOINT_PUBLICATION_BY_DOI)
+        ) {
+            return;
+        }
+
+        error_log(sprintf(
+            '[Metafora sync] GET %s HTTP %d response=%s',
+            $path,
+            $status,
+            $body === '' ? '<empty>' : $body
+        ));
     }
 
     /**
@@ -221,6 +262,77 @@ class MetaforaApiClient
         return $this->request(
             'GET',
             self::ENDPOINT_STATUS . '?file_uid=' . rawurlencode($identifier)
+        );
+    }
+
+    /** Delete a processed XML file before explicitly restoring a deleted publication. */
+    public function deleteFile(string $fileUid): array
+    {
+        $fileUid = trim($fileUid);
+        if ($fileUid === '') {
+            throw new InvalidArgumentException('File UID must not be empty.');
+        }
+
+        return $this->request(
+            'DELETE',
+            self::ENDPOINT_FILES . rawurlencode($fileUid)
+        );
+    }
+
+
+    /**
+     * Find a Metafora publication by DOI.
+     */
+    public function getPublicationByDoi(string $doi): array
+    {
+        $doi = trim($doi);
+        if ($doi === '') {
+            throw new InvalidArgumentException('DOI must not be empty.');
+        }
+
+        return $this->request(
+            'GET',
+            self::ENDPOINT_PUBLICATION_BY_DOI . $this->encodeDoiPath($doi)
+        );
+    }
+
+    /** Preserve DOI path separators; Apache rejects an encoded slash (%2F). */
+    private function encodeDoiPath(string $doi): string
+    {
+        return implode('/', array_map('rawurlencode', explode('/', $doi)));
+    }
+
+
+    /**
+     * Sign a Metafora publication.
+     */
+    public function signPublication(string $articleUid): array
+    {
+        $articleUid = trim($articleUid);
+        if ($articleUid === '') {
+            throw new InvalidArgumentException('Article UID must not be empty.');
+        }
+
+        return $this->request(
+            'PUT',
+            self::ENDPOINT_PUBLICATIONS . rawurlencode($articleUid) . '/sign/'
+        );
+    }
+
+
+    /**
+     * Revoke a Metafora publication signature.
+     */
+    public function unsignPublication(string $articleUid): array
+    {
+        $articleUid = trim($articleUid);
+        if ($articleUid === '') {
+            throw new InvalidArgumentException('Article UID must not be empty.');
+        }
+
+        return $this->request(
+            'PUT',
+            self::ENDPOINT_PUBLICATIONS . rawurlencode($articleUid) . '/unsign/'
         );
     }
 

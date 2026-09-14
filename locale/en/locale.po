@@ -156,3 +156,90 @@ msgstr "Download selected articles"
 
 msgid "plugins.importexport.metafora.download.issues"
 msgstr "Download selected issues"
+
+msgid "plugins.importexport.metafora.action.sync"
+msgstr "Synchronize"
+
+msgid "plugins.importexport.metafora.action.syncSelected"
+msgstr "Synchronize selected"
+
+msgid "plugins.importexport.metafora.action.sign"
+msgstr "Sign"
+
+msgid "plugins.importexport.metafora.action.unsign"
+msgstr "Revoke signature"
+
+msgid "plugins.importexport.metafora.sync.found"
+msgstr "Present in Metafora"
+
+msgid "plugins.importexport.metafora.sync.notFound"
+msgstr "Not found in Metafora"
+
+msgid "plugins.importexport.metafora.sync.submissionNotFound"
+msgstr "The published OJS article was not found."
+
+msgid "plugins.importexport.metafora.sync.issueNotFound"
+msgstr "The OJS issue was not found."
+
+msgid "plugins.importexport.metafora.issue.problemArticles"
+msgstr "Unsent or problematic articles"
+
+msgid "plugins.importexport.metafora.action.restore"
+msgstr "Restore"
+
+msgid "plugins.importexport.metafora.restore.confirm"
+msgstr "The stale XML file and all unsigned publications linked to it will be deleted from Metafora, then the article will be uploaded again. Continue?"
+
+msgid "plugins.importexport.metafora.restore.required"
+msgstr "The publication was deleted, but its source XML file remains in Metafora. Use the Restore action."
+
+msgid "plugins.importexport.metafora.restore.notRequired"
+msgstr "Restore is not required: the publication exists or its source XML file is unavailable."
+
+msgid "plugins.importexport.metafora.restore.buildFailed"
+msgstr "The article could not be prepared for upload."
+
+msgid "plugins.importexport.metafora.restore.started"
+msgstr "The stale XML file was deleted and the article was submitted for processing again."
+
+msgid "plugins.importexport.metafora.sync.error"
+msgstr "Unable to synchronize data with Metafora."
+
+msgid "plugins.importexport.metafora.sync.unknown"
+msgstr "Metafora status is unknown"
+
+msgid "plugins.importexport.metafora.sync.noIdentifier"
+msgstr "Neither a DOI nor a file_uid is available for synchronization."
+
+msgid "plugins.importexport.metafora.local.lastAttempt"
+msgstr "Last upload"
+
+msgid "plugins.importexport.metafora.ajax.loading"
+msgstr "Requesting the current state from Metafora…"
+
+msgid "plugins.importexport.metafora.ajax.csrf"
+msgstr "The session expired or the CSRF token is invalid. Reload the page and try again."
+
+msgid "plugins.importexport.metafora.ajax.method"
+msgstr "This operation requires a POST request."
+
+msgid "plugins.importexport.metafora.ajax.invalidJson"
+msgstr "The server returned an invalid JSON response."
+
+msgid "plugins.importexport.metafora.signature.signed"
+msgstr "Signed"
+
+msgid "plugins.importexport.metafora.signature.notSigned"
+msgstr "Not signed"
+
+msgid "plugins.importexport.metafora.signature.noArticleUid"
+msgstr "Unable to determine the Metafora article_uid. Synchronize the publication first."
+
+msgid "plugins.importexport.metafora.signature.invalidState"
+msgstr "The actual signature status does not allow this operation. Synchronize the publication again."
+
+msgid "plugins.importexport.metafora.signature.error"
+msgstr "Metafora rejected the signature operation."
+
+msgid "plugins.importexport.metafora.signature.confirm"
+msgstr "Confirm this signature operation in Metafora?"

@@ -156,3 +156,90 @@ msgstr "Скачать выбранные статьи"
 
 msgid "plugins.importexport.metafora.download.issues"
 msgstr "Скачать выбранные выпуски"
+
+msgid "plugins.importexport.metafora.action.sync"
+msgstr "Синхронизировать"
+
+msgid "plugins.importexport.metafora.action.syncSelected"
+msgstr "Синхронизировать выбранные"
+
+msgid "plugins.importexport.metafora.action.sign"
+msgstr "Подписать"
+
+msgid "plugins.importexport.metafora.action.unsign"
+msgstr "Отозвать подпись"
+
+msgid "plugins.importexport.metafora.sync.found"
+msgstr "Есть в Метафоре"
+
+msgid "plugins.importexport.metafora.sync.notFound"
+msgstr "Не найдена в Метафоре"
+
+msgid "plugins.importexport.metafora.sync.submissionNotFound"
+msgstr "Опубликованная статья OJS не найдена."
+
+msgid "plugins.importexport.metafora.sync.issueNotFound"
+msgstr "Выпуск OJS не найден."
+
+msgid "plugins.importexport.metafora.issue.problemArticles"
+msgstr "Не отправленные или проблемные статьи"
+
+msgid "plugins.importexport.metafora.action.restore"
+msgstr "Восстановить"
+
+msgid "plugins.importexport.metafora.restore.confirm"
+msgstr "Старый XML-файл и все связанные с ним неподписанные публикации будут удалены из Метафоры, после чего статья будет загружена заново. Продолжить?"
+
+msgid "plugins.importexport.metafora.restore.required"
+msgstr "Публикация удалена, но исходный XML-файл остался в Метафоре. Используйте действие «Восстановить»."
+
+msgid "plugins.importexport.metafora.restore.notRequired"
+msgstr "Восстановление не требуется: публикация существует либо исходный XML-файл не найден."
+
+msgid "plugins.importexport.metafora.restore.buildFailed"
+msgstr "Не удалось подготовить статью для повторной загрузки."
+
+msgid "plugins.importexport.metafora.restore.started"
+msgstr "Старый XML-файл удалён, статья повторно отправлена на обработку."
+
+msgid "plugins.importexport.metafora.sync.error"
+msgstr "Не удалось синхронизировать данные с Метафорой."
+
+msgid "plugins.importexport.metafora.sync.unknown"
+msgstr "Статус Метафоры не определён"
+
+msgid "plugins.importexport.metafora.sync.noIdentifier"
+msgstr "Для синхронизации не найден ни DOI, ни file_uid."
+
+msgid "plugins.importexport.metafora.local.lastAttempt"
+msgstr "Последняя отправка"
+
+msgid "plugins.importexport.metafora.ajax.loading"
+msgstr "Запрос к Метафоре выполняется…"
+
+msgid "plugins.importexport.metafora.ajax.csrf"
+msgstr "Сессия устарела или CSRF-токен неверен. Обновите страницу и повторите запрос."
+
+msgid "plugins.importexport.metafora.ajax.method"
+msgstr "Для этой операции требуется POST-запрос."
+
+msgid "plugins.importexport.metafora.ajax.invalidJson"
+msgstr "Сервер вернул неверный JSON-ответ."
+
+msgid "plugins.importexport.metafora.signature.signed"
+msgstr "Подписана"
+
+msgid "plugins.importexport.metafora.signature.notSigned"
+msgstr "Не подписана"
+
+msgid "plugins.importexport.metafora.signature.noArticleUid"
+msgstr "Не удалось определить article_uid публикации в Метафоре. Сначала выполните синхронизацию."
+
+msgid "plugins.importexport.metafora.signature.invalidState"
+msgstr "Фактический статус подписи не позволяет выполнить эту операцию. Синхронизируйте публикацию повторно."
+
+msgid "plugins.importexport.metafora.signature.error"
+msgstr "Метафора отклонила операцию с подписью."
+
+msgid "plugins.importexport.metafora.signature.confirm"
+msgstr "Подтвердить выполнение операции с подписью в Метафоре?"

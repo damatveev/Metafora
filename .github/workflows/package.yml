@@ -1,9 +1,13 @@
-name: Build plugin package
+name: Build and publish plugin release
 
 on:
-  push:
-    branches: [develop, develop-metafora-export]
   workflow_dispatch:
+  push:
+    branches: [main, develop, develop-metafora-export]
+    tags: ['v*']
+
+permissions:
+  contents: write
 
 jobs:
   package:
@@ -13,7 +17,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify plugin structure
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Verify source and release version
         shell: bash
         run: |
           set -euo pipefail
@@ -22,29 +32,42 @@ jobs:
           test -f version.xml
           test -d locale
           test -d templates
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+          php -r '$d=new DOMDocument(); if (!$d->load("version.xml")) exit(1);'
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            release="$(php -r '$d=simplexml_load_file("version.xml"); echo (string)$d->release;')"
+            test "${GITHUB_REF_NAME}" = "v${release}"
+          fi
+
+      - name: Reject temporary files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '*.bak' -o -name '*.bak2' -o -name '*.before*' -o -name '*.broken*' -o -name '*.failed*' -o -name '*.error' -o -name '*.bad_*' -o -name '.DS_Store' -o -name '*.from.zip' \) -not -path './.git/*' -print -quit | grep -q .; then
+            echo 'Temporary or backup file found in source tree' >&2
+            exit 1
+          fi
 
       - name: Build ZIP
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist/metafora
-          rsync -a \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='dist' \
-            --exclude='*.bak' \
-            --exclude='*.before_*' \
-            --exclude='*.broken*' \
-            --exclude='*.bad_*' \
-            --exclude='*.error' \
-            --exclude='*.failed' \
-            ./ dist/metafora/
+          rsync -a             --exclude='.git'             --exclude='.github'             --exclude='dist'             --exclude='docs'             --exclude='.gitignore'             --exclude='.gitattributes'             --exclude='CHANGELOG.md'             --exclude='SECURITY.md'             ./ dist/metafora/
           cd dist
           zip -r metafora-ojs35.zip metafora
 
-      - name: Upload package
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: metafora-ojs35
           path: dist/metafora-ojs35.zip
           if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Metafora OJS Plugin ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          files: dist/metafora-ojs35.zip

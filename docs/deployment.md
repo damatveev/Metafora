@@ -1,42 +1,29 @@
-# Deployment to OJS 3.5
+# Deployment and rollback
 
 Target: OJS 3.5.0.5+.
 
-## Package
+## Release package
 
-The GitHub Actions workflow `Build plugin package` creates the artifact `metafora-ojs35.zip`. The archive contains one top-level directory:
+A tag matching `v*` starts the GitHub Actions release workflow. It checks PHP syntax, parses `version.xml`, verifies that the tag equals the declared plugin version, scans for common committed secret patterns, and builds `metafora-ojs35.zip`.
 
-`metafora/`
+The archive contains one top-level `metafora/` directory and excludes Git metadata, workflow files, development documentation, and temporary/backup files.
 
-This directory is intended for deployment to:
+## Production deployment checklist
 
-`plugins/importexport/metafora/`
-
-## First installation checklist
-
-1. Back up the OJS database and plugin directory before deployment.
-2. Remove or rename any obsolete preliminary copy under `plugins/generic/metaforaExport/` so it cannot be confused with the import/export plugin.
-3. Deploy the `metafora` directory to `plugins/importexport/`.
-4. In OJS Administration, open Import/Export Plugins and verify that `Metafora Export Plugin` is listed.
-5. Open plugin settings for the current journal and configure API URL and API token. Secrets must only be entered through OJS settings and must never be committed to Git.
-6. Save settings and verify that settings are isolated by journal `context_id`.
-7. Run the connection test using the configured test endpoint.
-8. Open the plugin export page, select one test publication and run JSON export.
-9. Verify title, authors, DOI, issue, ISSN, references and file metadata in the generated package.
-10. Do not enable production API submission until the official Metafora endpoint contract and XML schema mapping have been verified.
-
-## Export history upgrade
-
-Version 0.3.1 creates the prefixed `metafora_export_history` table when the export page is first opened. Existing per-journal `exportHistory` plugin settings are imported automatically when the journal has no table records yet.
-
-The database user configured by OJS must have permission to create tables. Back up both the database and `plugins/importexport/metafora/` before upgrading an existing installation.
+1. Confirm that the release tag, changelog version, and `version.xml` match.
+2. Back up the OJS database and the current plugin directory outside the web root.
+3. Extract the release package into `plugins/importexport/`.
+4. Preserve ownership and permissions used by the surrounding OJS installation.
+5. Open the plugin page to initialize or verify its database tables.
+6. Test the configured API connection.
+7. Export and synchronize one test article.
+8. Verify article, issue, signature, and recovery controls before bulk use.
+9. Retain the previous release package and database backup until validation is complete.
 
 ## Rollback
 
-If the plugin causes an OJS error, restore both the previous `plugins/importexport/metafora/` directory and the database backup. Do not drop the history table during an ordinary code rollback; keeping it preserves export audit data.
+Restore both the previous plugin directory and the matching database backup. Do not delete export-history or remote-state tables during a normal code rollback unless a reviewed database migration explicitly requires it.
 
-## XML formats
+## Server repository hygiene
 
-Journal XML, JATS and Science Space must not be treated as production-ready until generated XML passes validation against the official Metafora XSD resources.
-
-Author: Dmitry Matveev (Дмитрий Матвеев)
+A production checkout should contain no stash, backup branches, or temporary edit files. Keep operational backups outside both the plugin directory and its Git repository. After deployment, `git status --short` should be empty and the checked-out commit should match the release tag.

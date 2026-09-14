@@ -1,46 +1,32 @@
-# Installation and first test on OJS 3.5.0.5+
+# Installation and upgrade
 
-## Plugin location
+## Requirements
 
-The plugin must be deployed to:
+- OJS 3.5.0.5 or newer.
+- PHP 8.2 or 8.3 with DOM/XML and cURL support.
+- A Metafora API v2 URL and API key.
+- Database permissions normally required by OJS plugin upgrades.
 
-`plugins/importexport/metafora/`
+## Install from a release
 
-It is an Import/Export plugin (`plugins.importexport`), not a Generic plugin.
+1. Download `metafora-ojs35.zip` from the matching GitHub release.
+2. Back up the OJS database.
+3. If an older plugin copy exists, back up `plugins/importexport/metafora/`.
+4. Extract the ZIP into `plugins/importexport/`. The resulting path must be `plugins/importexport/metafora/`.
+5. Verify that `index.php`, `MetaforaExportPlugin.php`, and `version.xml` are directly inside that directory.
+6. Open **Tools → Import/Export → Metafora Export Plugin** in OJS.
+7. Configure the API URL and API key for the current journal.
+8. Save and run the connection test.
+9. Send one test article and synchronize its remote state before a bulk export.
 
-## First test scope
+The plugin is an Import/Export plugin, not a Generic plugin. Remove or disable obsolete experimental copies such as `plugins/generic/metaforaExport/`.
 
-Version 0.2.0 is intended for installation and UI/metadata testing. The safe test scope is:
+## Upgrade
 
-1. Plugin discovery by OJS 3.5.0.5+.
-2. Per-journal settings (`context_id`).
-3. API URL/token storage through plugin settings.
-4. Configurable connection test.
-5. Selection of publications in the Import/Export page.
-6. OJS metadata mapping to the internal `MetaforaPublication` model.
-7. Mapping of publication galleys/submission files.
-8. Neutral JSON export for inspection.
+Back up the database and plugin directory, then replace the plugin files with the new release. Do not copy temporary `.bak`, `.before*`, `.broken*`, `.failed*`, or `.error` files into the new installation.
 
-## XML schemas
-
-Production Journal/JATS/Science Space XML export must not be enabled until the official upstream schema files are placed under `plugins/importexport/metafora/schemas/` and the format-specific serializer is implemented against those exact schemas.
-
-Expected files include:
-
-- `schemas/journal3.xsd`
-- `schemas/science_space_articles.xsd`
-- unpacked JATS 1.4 schemas under `schemas/jats/`
-
-The validation layer will reject XML when the required schema is missing or validation fails.
+Version 0.4.0.1 uses database-backed export history and remote-state records. Existing legacy per-journal export history is imported when appropriate. Keep these tables during an ordinary code rollback so the audit history is preserved.
 
 ## Security
 
-Never commit an API token to Git. Configure the token only in the journal-specific plugin settings. The connection test must not expose the token or response body.
-
-## Existing obsolete test skeleton
-
-If an old development skeleton exists under `plugins/generic/metaforaExport/`, do not use it as the active plugin. The maintained implementation is `plugins/importexport/metafora/`.
-
-## Author
-
-Dmitry Matveev (Дмитрий Матвеев)
+Never commit or package an API key. Enter it only through journal-specific OJS settings. A release archive must be built by the repository workflow or from a clean tagged checkout.

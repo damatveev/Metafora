@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+*.bak
+*.bak2
+*.before*
+*.broken*
+*.failed*
+*.error
+*.bad_*
+*.orig
+*.rej
+*.from.zip
+backup-*/
+dist/
+.env
